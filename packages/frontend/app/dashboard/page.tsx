@@ -19,6 +19,13 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const hasParsing = resumes.some((r) => r.parseStatus === "parsing");
+    if (!hasParsing) return;
+    const timer = setInterval(() => refreshResumes(), 3000);
+    return () => clearInterval(timer);
+  }, [resumes]);
+
   async function refreshResumes() {
     const res = await apiFetch(`${API}/resumes`);
     const json = await res.json();
