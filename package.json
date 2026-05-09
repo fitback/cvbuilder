@@ -1,0 +1,15 @@
+{
+  "name": "cvbuilder",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run start:dev -w packages/backend",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "db:migrate": "npm run db:migrate -w packages/backend",
+    "db:generate": "npm run db:generate -w packages/backend"
+  }
+}

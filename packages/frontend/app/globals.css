@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&family=JetBrains+Mono&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #B75C3A;
+  --color-accent-hover: #9A4E31;
+  --color-near-black: #1A1A1A;
+  --color-text-primary: #2D2D2D;
+  --color-text-secondary: #6B6B6B;
+  --color-text-muted: #9E9E9E;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #FAFAF9;
+  --color-surface-tertiary: #F5F4F2;
+  --color-border: #D4D4D4;
+  --color-border-light: #EBEBEB;
+  --color-success: #5B8C5A;
+  --color-warning: #C7953A;
+  --color-error: #C75B5B;
+  --font-display: 'Noto Serif SC', serif;
+  --font-body: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}

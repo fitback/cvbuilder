@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Resume {
+  id                String           @id @default(uuid())
+  sessionId         String
+  filePath          String
+  fileNameOriginal  String?
+  fileType          String
+  fileSize          Int?
+  parseStatus       String           @default("pending")
+  parseResult       Json?
+  rawText           String?
+  freeAnalysisCount Int              @default(3)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  analysisRecords   AnalysisRecord[]
+
+  @@index([sessionId])
+  @@index([parseStatus])
+}
+
+model JobDescription {
+  id              String           @id @default(uuid())
+  sessionId       String
+  title           String
+  company         String?
+  content         String
+  createdAt       DateTime         @default(now())
+  analysisRecords AnalysisRecord[]
+
+  @@index([sessionId])
+}
+
+model AnalysisRecord {
+  id               String         @id @default(uuid())
+  sessionId        String
+  resumeId         String
+  jobDescriptionId String
+  analysisResult   Json?
+  matchScore       Int?
+  createdAt        DateTime       @default(now())
+  resume           Resume         @relation(fields: [resumeId], references: [id])
+  jobDescription   JobDescription @relation(fields: [jobDescriptionId], references: [id])
+
+  @@unique([resumeId, jobDescriptionId])
+  @@index([sessionId])
+  @@index([resumeId])
+  @@index([jobDescriptionId])
+}

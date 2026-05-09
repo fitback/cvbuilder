@@ -1,0 +1,20 @@
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: ErrorCode;
+    message: string;
+  };
+}
+
+export enum ErrorCode {
+  INVALID_PARAMS = "INVALID_PARAMS",
+  UNAUTHORIZED = "UNAUTHORIZED",
+  QUOTA_EXCEEDED = "QUOTA_EXCEEDED",
+  RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND",
+  FILE_TYPE_UNSUPPORTED = "FILE_TYPE_UNSUPPORTED",
+  FILE_TOO_LARGE = "FILE_TOO_LARGE",
+  PARSE_FAILED = "PARSE_FAILED",
+  INTERNAL_ERROR = "INTERNAL_ERROR",
+  AI_SERVICE_UNAVAILABLE = "AI_SERVICE_UNAVAILABLE",
+}

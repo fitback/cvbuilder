@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+.env
+.superpowers/
+**/data/
+*.db
+.gstack/
+.claude/
+*.log
+*.tsbuildinfo
+.DS_Store
+*.pdf
+*.docx
