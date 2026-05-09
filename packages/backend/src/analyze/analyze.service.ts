@@ -41,9 +41,9 @@ async function callDeepSeek(messages: any[], temperature = 0.3): Promise<any> {
 export class AnalyzeService {
   constructor(private prisma: PrismaService) {}
 
-  async analyze(body: AnalyzeRequest, sessionId: string): Promise<AnalyzeResponse> {
+  async analyze(body: AnalyzeRequest, userId: string): Promise<AnalyzeResponse> {
     const resume = await this.prisma.resume.findUnique({ where: { id: body.resumeId } });
-    if (!resume || resume.sessionId !== sessionId) {
+    if (!resume || resume.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
     }
     if (resume.parseStatus !== "parsed" || !resume.parseResult) {
@@ -51,7 +51,7 @@ export class AnalyzeService {
     }
 
     const jd = await this.prisma.jobDescription.findUnique({ where: { id: body.jobDescriptionId } });
-    if (!jd || jd.sessionId !== sessionId) {
+    if (!jd || jd.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "JD不存在" }, 404);
     }
 
@@ -91,7 +91,7 @@ export class AnalyzeService {
       const record = await this.prisma.analysisRecord.upsert({
         where: { resumeId_jobDescriptionId: { resumeId: body.resumeId, jobDescriptionId: body.jobDescriptionId } },
         create: {
-          sessionId, resumeId: body.resumeId, jobDescriptionId: body.jobDescriptionId,
+          userId, resumeId: body.resumeId, jobDescriptionId: body.jobDescriptionId,
           analysisResult, matchScore: analysisResult.matchScore,
         },
         update: { analysisResult, matchScore: analysisResult.matchScore },
@@ -112,9 +112,9 @@ export class AnalyzeService {
     }
   }
 
-  async listByResume(resumeId: string, sessionId: string): Promise<AnalysisHistoryItem[]> {
+  async listByResume(resumeId: string, userId: string): Promise<AnalysisHistoryItem[]> {
     const records = await this.prisma.analysisRecord.findMany({
-      where: { resumeId, sessionId },
+      where: { resumeId, userId },
       include: { jobDescription: { select: { title: true, company: true } } },
       orderBy: { createdAt: "desc" },
     });
@@ -127,9 +127,9 @@ export class AnalyzeService {
     }));
   }
 
-  async getDetail(id: string, sessionId: string): Promise<AnalysisDetail> {
+  async getDetail(id: string, userId: string): Promise<AnalysisDetail> {
     const record = await this.prisma.analysisRecord.findUnique({ where: { id } });
-    if (!record || record.sessionId !== sessionId) {
+    if (!record || record.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
     }
     const result = record.analysisResult as any;

@@ -41,9 +41,9 @@ async function callDeepSeek(messages: any[], temperature = 0.4): Promise<string>
 export class GenerateService {
   constructor(private prisma: PrismaService) {}
 
-  async generate(body: GenerateRequest, sessionId: string): Promise<GenerateResponse> {
+  async generate(body: GenerateRequest, userId: string): Promise<GenerateResponse> {
     const resume = await this.prisma.resume.findUnique({ where: { id: body.resumeId } });
-    if (!resume || resume.sessionId !== sessionId) {
+    if (!resume || resume.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
     }
     if (!resume.parseResult) {
@@ -51,7 +51,7 @@ export class GenerateService {
     }
 
     const analysis = await this.prisma.analysisRecord.findUnique({ where: { id: body.analysisRecordId } });
-    if (!analysis || analysis.sessionId !== sessionId) {
+    if (!analysis || analysis.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
     }
     if (!analysis.analysisResult) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ResumeItem } from "@cvbuilder/shared";
+import { apiFetch } from "../../lib/auth";
 
 const API = "http://localhost:3001";
 
@@ -11,7 +12,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/resumes`, { credentials: "include" })
+    apiFetch(`${API}/resumes`)
       .then((r) => r.json())
       .then((j) => setResumes(j.data ?? []))
       .catch(() => setError("加载失败，请刷新重试"))
@@ -19,7 +20,7 @@ export default function DashboardPage() {
   }, []);
 
   async function refreshResumes() {
-    const res = await fetch(`${API}/resumes`, { credentials: "include" });
+    const res = await apiFetch(`${API}/resumes`);
     const json = await res.json();
     setResumes(json.data ?? []);
   }
@@ -85,7 +86,7 @@ export default function DashboardPage() {
                   </a>
                 )}
                 <button onClick={async () => {
-                  await fetch(`${API}/resumes/${r.id}`, { method: "DELETE", credentials: "include" });
+                  await apiFetch(`${API}/resumes/${r.id}`, { method: "DELETE" });
                   await refreshResumes();
                 }} className="px-3 py-1.5 text-xs text-text-muted hover:text-error">
                   删除

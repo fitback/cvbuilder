@@ -1,12 +1,12 @@
 import { Controller, Post, Get, Param, Delete, Req, UseInterceptors, UploadedFile, UseGuards } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ResumesService } from "./resumes.service";
-import { SessionGuard } from "../session/session.guard";
+import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import { UploadResponse, ResumeItem, ResumeDetail } from "@cvbuilder/shared";
 
 @Controller("resumes")
-@UseGuards(SessionGuard)
+@UseGuards(AuthGuard)
 @UseInterceptors(ApiResponseInterceptor)
 export class ResumesController {
   constructor(private readonly resumesService: ResumesService) {}
@@ -14,21 +14,21 @@ export class ResumesController {
   @Post("upload")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
   async upload(@UploadedFile() file: Express.Multer.File, @Req() req: any): Promise<UploadResponse> {
-    return this.resumesService.upload(file, req.sessionId);
+    return this.resumesService.upload(file, req.userId);
   }
 
   @Get()
   async list(@Req() req: any): Promise<ResumeItem[]> {
-    return this.resumesService.list(req.sessionId);
+    return this.resumesService.list(req.userId);
   }
 
   @Get(":id")
   async detail(@Param("id") id: string, @Req() req: any): Promise<ResumeDetail> {
-    return this.resumesService.detail(id, req.sessionId);
+    return this.resumesService.detail(id, req.userId);
   }
 
   @Delete(":id")
   async delete(@Param("id") id: string, @Req() req: any): Promise<{ success: true }> {
-    return this.resumesService.delete(id, req.sessionId);
+    return this.resumesService.delete(id, req.userId);
   }
 }

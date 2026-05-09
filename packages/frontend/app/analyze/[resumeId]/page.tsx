@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import { JobDescriptionItem, AnalysisResult, ResumeDetail, AnalysisHistoryItem } from "@cvbuilder/shared";
+import { apiFetch } from "../../../lib/auth";
 
 const API = "http://localhost:3001";
 
@@ -21,13 +22,13 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/resumes/${resumeId}`, { credentials: "include" }).then((r) => r.json()).then((j) => setResume(j.data));
-    fetch(`${API}/jobs`, { credentials: "include" }).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
+    apiFetch(`${API}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
+    apiFetch(`${API}/jobs`).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
     fetchHistory();
   }, [resumeId]);
 
   async function fetchHistory() {
-    const res = await fetch(`${API}/analyze?resumeId=${resumeId}`, { credentials: "include" });
+    const res = await apiFetch(`${API}/analyze?resumeId=${resumeId}`);
     const json = await res.json();
     const items: AnalysisHistoryItem[] = json.data ?? [];
     setHistory(items);
@@ -38,7 +39,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
 
   async function loadDetail(recordId: string) {
     setViewingHistoryId(recordId);
-    const res = await fetch(`${API}/analyze/${recordId}`, { credentials: "include" });
+    const res = await apiFetch(`${API}/analyze/${recordId}`);
     const json = await res.json();
     if (json.success) {
       setResult(json.data);
@@ -51,7 +52,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     setAnalyzing(true);
 
     try {
-      const res = await fetch(`${API}/analyze`, {
+      const res = await apiFetch(`${API}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -78,7 +79,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     setGeneratedMarkdown("");
     setError("");
     try {
-      const res = await fetch(`${API}/generate`, {
+      const res = await apiFetch(`${API}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -103,7 +104,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
 
   async function exportPdf() {
     try {
-      const res = await fetch(`${API}/export/pdf`, {
+      const res = await apiFetch(`${API}/export/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markdown: generatedMarkdown }),

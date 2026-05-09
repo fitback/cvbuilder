@@ -7,9 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String   @id @default(uuid())
+  phone        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  resumes          Resume[]
+  jobDescriptions  JobDescription[]
+  analysisRecords  AnalysisRecord[]
+}
+
 model Resume {
   id                String           @id @default(uuid())
-  sessionId         String
+  userId            String
+  user              User             @relation(fields: [userId], references: [id])
   filePath          String
   fileNameOriginal  String?
   fileType          String
@@ -22,25 +35,27 @@ model Resume {
   updatedAt         DateTime         @updatedAt
   analysisRecords   AnalysisRecord[]
 
-  @@index([sessionId])
+  @@index([userId])
   @@index([parseStatus])
 }
 
 model JobDescription {
   id              String           @id @default(uuid())
-  sessionId       String
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
   title           String
   company         String?
   content         String
   createdAt       DateTime         @default(now())
   analysisRecords AnalysisRecord[]
 
-  @@index([sessionId])
+  @@index([userId])
 }
 
 model AnalysisRecord {
   id               String         @id @default(uuid())
-  sessionId        String
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
   resumeId         String
   jobDescriptionId String
   analysisResult   Json?
@@ -50,7 +65,7 @@ model AnalysisRecord {
   jobDescription   JobDescription @relation(fields: [jobDescriptionId], references: [id])
 
   @@unique([resumeId, jobDescriptionId])
-  @@index([sessionId])
+  @@index([userId])
   @@index([resumeId])
   @@index([jobDescriptionId])
 }

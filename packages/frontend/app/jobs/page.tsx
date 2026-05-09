@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { JobDescriptionItem } from "@cvbuilder/shared";
+import { apiFetch } from "../../lib/auth";
 
 const API = "http://localhost:3001";
 
@@ -17,7 +18,7 @@ export default function JobsPage() {
 
   async function fetchJobs() {
     try {
-      const res = await fetch(`${API}/jobs`, { credentials: "include" });
+      const res = await apiFetch(`${API}/jobs`);
       const json = await res.json();
       setJobs(json.data ?? []);
       setError("");
@@ -31,7 +32,7 @@ export default function JobsPage() {
   async function createJob(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch(`${API}/jobs`, {
+    await apiFetch(`${API}/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -107,7 +108,7 @@ export default function JobsPage() {
                 <div className="text-xs text-text-muted mt-1">创建于 {new Date(j.createdAt).toLocaleDateString("zh-CN")}</div>
               </div>
               <button onClick={async () => {
-                await fetch(`${API}/jobs/${j.id}`, { method: "DELETE", credentials: "include" });
+                await apiFetch(`${API}/jobs/${j.id}`, { method: "DELETE", credentials: "include" });
                 fetchJobs();
               }} className="px-3 py-1.5 text-xs text-text-muted hover:text-error">删除</button>
             </div>

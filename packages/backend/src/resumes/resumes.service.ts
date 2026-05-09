@@ -20,7 +20,7 @@ export class ResumesService {
     @Inject(PARSE_QUEUE) private parseQueue: Queue,
   ) {}
 
-  async upload(file: Express.Multer.File, sessionId: string): Promise<UploadResponse> {
+  async upload(file: Express.Multer.File, userId: string): Promise<UploadResponse> {
     if (!file) throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "No file provided" }, 400);
 
     const fileType = ALLOWED_TYPES[file.mimetype];
@@ -36,7 +36,7 @@ export class ResumesService {
     const resume = await this.prisma.resume.create({
       data: {
         id: fileId,
-        sessionId,
+        userId,
         filePath,
         fileNameOriginal: Buffer.from(file.originalname, "latin1").toString("utf8"),
         fileType,
@@ -58,9 +58,9 @@ export class ResumesService {
     };
   }
 
-  async list(sessionId: string): Promise<ResumeItem[]> {
+  async list(userId: string): Promise<ResumeItem[]> {
     const resumes = await this.prisma.resume.findMany({
-      where: { sessionId },
+      where: { userId },
       orderBy: { createdAt: "desc" },
       select: {
         id: true, fileNameOriginal: true, fileType: true,
@@ -80,12 +80,12 @@ export class ResumesService {
     }));
   }
 
-  async detail(id: string, sessionId: string): Promise<ResumeDetail> {
+  async detail(id: string, userId: string): Promise<ResumeDetail> {
     const resume = await this.prisma.resume.findUnique({
       where: { id },
       include: { _count: { select: { analysisRecords: true } } },
     });
-    if (!resume || resume.sessionId !== sessionId) {
+    if (!resume || resume.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
     }
     return {
@@ -102,9 +102,9 @@ export class ResumesService {
     };
   }
 
-  async delete(id: string, sessionId: string): Promise<{ success: true }> {
+  async delete(id: string, userId: string): Promise<{ success: true }> {
     const resume = await this.prisma.resume.findUnique({ where: { id } });
-    if (!resume || resume.sessionId !== sessionId) {
+    if (!resume || resume.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
     }
     try { fs.unlinkSync(resume.filePath); } catch (_) {}

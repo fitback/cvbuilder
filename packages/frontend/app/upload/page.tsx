@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "../../lib/auth";
 
 const API = "http://localhost:3001";
 
@@ -29,7 +30,7 @@ export default function UploadPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`${API}/resumes/upload`, { method: "POST", body: form, credentials: "include" });
+      const res = await apiFetch(`${API}/resumes/upload`, { method: "POST", body: form });
       const json = await res.json();
       if (!json.success) {
         setError(json.error?.message ?? "上传失败");
