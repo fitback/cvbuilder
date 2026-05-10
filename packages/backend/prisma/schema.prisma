@@ -11,12 +11,17 @@ model User {
   id           String   @id @default(uuid())
   phone        String   @unique
   passwordHash String
+  role         String   @default("user")
+  points       Int      @default(30)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   resumes          Resume[]
   jobDescriptions  JobDescription[]
   analysisRecords  AnalysisRecord[]
+  rechargeRecords  RechargeRecord[]
+  pointTransactions PointTransaction[]
+  adminRecharges   RechargeRecord[]     @relation("AdminRecharges")
 }
 
 model Resume {
@@ -68,4 +73,36 @@ model AnalysisRecord {
   @@index([userId])
   @@index([resumeId])
   @@index([jobDescriptionId])
+}
+
+model RechargeRecord {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  amount        Int
+  points        Int
+  orderNo       String
+  status        String    @default("pending")
+  adminNote     String?
+  adminId       String?
+  admin         User?     @relation("AdminRecharges", fields: [adminId], references: [id])
+  createdAt     DateTime  @default(now())
+  approvedAt    DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model PointTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String
+  amount      Int
+  balance     Int
+  description String
+  referenceId String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
