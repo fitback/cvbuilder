@@ -55,9 +55,7 @@ export default function RechargePage() {
       <div className="flex gap-8 flex-col md:flex-row">
         <div className="flex-1 md:max-w-[280px]">
           <div className="bg-surface border border-border-light rounded-md p-6 text-center">
-            <div className="w-40 h-40 bg-surface-tertiary rounded mx-auto mb-4 flex items-center justify-center">
-              <span className="text-text-muted text-sm">微信收款码</span>
-            </div>
+            <img src="/paywechat.jpg" alt="微信收款码" className="w-40 h-40 rounded mx-auto mb-4 object-contain" />
             <p className="text-sm text-text-secondary">
               微信扫码转账后，填写下方信息提交审核
             </p>
