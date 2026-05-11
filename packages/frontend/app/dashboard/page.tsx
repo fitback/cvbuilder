@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ResumeItem, JobDescriptionItem } from "@cvbuilder/shared";
-import { apiFetch, API_BASE } from "../../lib/auth";
+import { apiFetch, API_BASE, isLoggedIn } from "../../lib/auth";
+import AuthModal from "../../components/AuthModal";
 import RechargeApproval from "../../components/RechargeApproval";
 
 
@@ -23,8 +24,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState({ resumes: true, jobs: true, saved: true });
   const [errors, setErrors] = useState({ resumes: "", jobs: "", saved: "" });
   const [viewingJd, setViewingJd] = useState<{ title: string; company?: string; content: string } | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
 
-  useEffect(() => { fetchResumes(); fetchJobs(); fetchSavedResumes(); }, []);
+  useEffect(() => {
+    if (!isLoggedIn()) { setShowAuth(true); setLoading({ resumes: false, jobs: false, saved: false }); return; }
+    fetchResumes(); fetchJobs(); fetchSavedResumes();
+  }, []);
 
   useEffect(() => {
     const hasParsing = resumes.some((r) => r.parseStatus === "parsing");
@@ -220,6 +225,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); window.location.reload(); }} />}
     </div>
   );
 }
