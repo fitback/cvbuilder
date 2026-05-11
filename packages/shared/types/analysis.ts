@@ -35,7 +35,7 @@ export interface AnalyzeResponse {
   jdCoreDecoding: JdCoreDecoding[];
   optimizationSuggestions: OptimizationSuggestion[];
   detailChecklist: DetailChecklist[];
-  remainingFreeCount: number;
+  remainingFreeCount?: number;
 }
 
 export interface AnalysisHistoryItem {

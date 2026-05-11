@@ -1,5 +1,6 @@
 import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { PointsService } from "../points/points.service";
 import { AnalyzeRequest, AnalyzeResponse, AnalysisHistoryItem, AnalysisDetail, ErrorCode } from "@cvbuilder/shared";
 import { CircuitBreaker } from "./circuit-breaker";
 import { readFileSync } from "fs";
@@ -39,7 +40,10 @@ async function callDeepSeek(messages: any[], temperature = 0.3): Promise<any> {
 
 @Injectable()
 export class AnalyzeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private points: PointsService,
+  ) {}
 
   async analyze(body: AnalyzeRequest, userId: string): Promise<AnalyzeResponse> {
     const resume = await this.prisma.resume.findUnique({ where: { id: body.resumeId } });
@@ -67,17 +71,15 @@ export class AnalyzeService {
         jdCoreDecoding: result.jdCoreDecoding ?? [],
         optimizationSuggestions: result.optimizationSuggestions ?? [],
         detailChecklist: result.detailChecklist ?? [],
-        remainingFreeCount: resume.freeAnalysisCount,
       };
     }
 
-    // Atomic decrement
-    const updated = await this.prisma.resume.updateMany({
-      where: { id: body.resumeId, freeAnalysisCount: { gt: 0 } },
-      data: { freeAnalysisCount: { decrement: 1 } },
-    });
-    if (updated.count === 0) {
-      throw new HttpException({ code: ErrorCode.QUOTA_EXCEEDED, message: "免费次数已用完" }, 403);
+    // Admin users bypass quota
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const isAdmin = user.role === "admin";
+
+    if (!isAdmin) {
+      await this.points.deduct(userId, 30, "AI分析", body.resumeId);
     }
 
     try {
@@ -97,17 +99,17 @@ export class AnalyzeService {
         update: { analysisResult, matchScore: analysisResult.matchScore },
       });
 
-      const refreshedResume = await this.prisma.resume.findUniqueOrThrow({ where: { id: body.resumeId } });
       return {
         analysisRecordId: record.id,
         matchScore: analysisResult.matchScore,
         jdCoreDecoding: analysisResult.jdCoreDecoding ?? [],
         optimizationSuggestions: analysisResult.optimizationSuggestions ?? [],
         detailChecklist: analysisResult.detailChecklist ?? [],
-        remainingFreeCount: refreshedResume.freeAnalysisCount,
       };
     } catch (err) {
-      await this.prisma.resume.update({ where: { id: body.resumeId }, data: { freeAnalysisCount: { increment: 1 } } });
+      if (!isAdmin) {
+        await this.points.refund(userId, 30, "AI分析失败退还", body.resumeId);
+      }
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "AI服务暂时不可用，请稍后重试" }, 503);
     }
   }
