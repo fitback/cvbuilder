@@ -66,6 +66,7 @@ model AnalysisRecord {
   analysisResult   Json?
   matchScore       Int?
   createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
   resume           Resume         @relation(fields: [resumeId], references: [id])
   jobDescription   JobDescription @relation(fields: [jobDescriptionId], references: [id])
 

@@ -129,6 +129,31 @@ export class AnalyzeService {
     }));
   }
 
+  async listSaved(userId: string) {
+    const records = await this.prisma.analysisRecord.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        resume: { select: { fileNameOriginal: true } },
+        jobDescription: { select: { title: true, company: true } },
+      },
+    });
+    return records
+      .filter((r) => {
+        const ar = r.analysisResult as any;
+        return ar?.editedResume;
+      })
+      .map((r) => ({
+        analysisRecordId: r.id,
+        resumeId: r.resumeId,
+        resumeFileName: r.resume.fileNameOriginal ?? "",
+        jdTitle: r.jobDescription.title,
+        jdCompany: r.jobDescription.company ?? undefined,
+        matchScore: r.matchScore ?? 0,
+        savedAt: r.updatedAt.toISOString(),
+      }));
+  }
+
   async getDetail(id: string, userId: string): Promise<AnalysisDetail> {
     const record = await this.prisma.analysisRecord.findUnique({ where: { id } });
     if (!record || record.userId !== userId) {

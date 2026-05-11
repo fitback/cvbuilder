@@ -9,8 +9,9 @@ import OriginalResumeCard from "../../../components/OriginalResumeCard";
 
 const API = "http://localhost:3001";
 
-export default function AnalyzePage({ params }: { params: Promise<{ resumeId: string }> }) {
+export default function AnalyzePage({ params, searchParams }: { params: Promise<{ resumeId: string }>; searchParams: Promise<{ record?: string }> }) {
   const { resumeId } = use(params);
+  const { record: initialRecord } = use(searchParams);
   const [resume, setResume] = useState<ResumeDetail | null>(null);
   const [jobs, setJobs] = useState<JobDescriptionItem[]>([]);
   const [selectedJd, setSelectedJd] = useState("");
@@ -41,7 +42,10 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     const json = await res.json();
     const items: AnalysisHistoryItem[] = json.data ?? [];
     setHistory(items);
-    if (items.length > 0 && !viewingHistoryId) {
+    if (initialRecord && !viewingHistoryId) {
+      loadDetail(initialRecord);
+      setGeneratedMarkdown(""); // trigger comparison view open
+    } else if (items.length > 0 && !viewingHistoryId) {
       loadDetail(items[0].id);
     }
   }
@@ -53,6 +57,15 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     if (json.success) {
       setResult(json.data);
     }
+    // Also try to load saved markdown
+    try {
+      const genRes = await apiFetch(`${API}/generate/${recordId}`);
+      const genJson = await genRes.json();
+      if (genJson.success && genJson.data.markdown) {
+        setGeneratedMarkdown(genJson.data.markdown);
+        setSavedMarkdown(genJson.data.markdown);
+      }
+    } catch {}
   }
 
   async function startAnalyze() {

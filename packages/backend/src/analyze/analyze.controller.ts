@@ -15,6 +15,11 @@ export class AnalyzeController {
     return this.analyzeService.analyze(body, req.userId);
   }
 
+  @Get("saved")
+  async listSaved(@Req() req: any) {
+    return this.analyzeService.listSaved(req.userId);
+  }
+
   @Get()
   async listByResume(@Query("resumeId") resumeId: string, @Req() req: any): Promise<AnalysisHistoryItem[]> {
     return this.analyzeService.listByResume(resumeId, req.userId);
