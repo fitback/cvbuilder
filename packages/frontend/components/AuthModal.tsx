@@ -11,6 +11,7 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [giftNotice, setGiftNotice] = useState("");
 
   async function submit() {
     setError("");
@@ -28,6 +29,10 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
         return;
       }
       setToken(json.data.token);
+      if (tab === "register") {
+        setGiftNotice("注册成功！已赠送 30 积分，快去试试 AI 分析吧");
+        setTimeout(() => setGiftNotice(""), 4000);
+      }
       onLogin(json.data.userId);
       onClose();
     } catch {
@@ -40,6 +45,11 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-surface rounded-lg p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+        {giftNotice && (
+          <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded">
+            {giftNotice}
+          </div>
+        )}
         <div className="flex mb-6">
           <button
             onClick={() => setTab("login")}
