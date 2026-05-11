@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, API_BASE, isLoggedIn } from "../../lib/auth";
 import AuthModal from "../../components/AuthModal";
@@ -12,6 +12,10 @@ export default function UploadPage() {
   const [showAuth, setShowAuth] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoggedIn()) setShowAuth(true);
+  }, []);
 
   function requireAuth(): boolean {
     if (!isLoggedIn()) {
@@ -51,6 +55,10 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  if (showAuth) {
+    return <AuthModal onClose={() => setShowAuth(false)} onLogin={() => setShowAuth(false)} />;
   }
 
   return (

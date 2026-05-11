@@ -95,6 +95,10 @@ export default function DashboardPage() {
   const allEmpty = resumes.length === 0 && jobs.length === 0 && savedResumes.length === 0;
   const allLoaded = !loading.resumes && !loading.jobs && !loading.saved;
 
+  if (showAuth) {
+    return <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); window.location.reload(); }} />;
+  }
+
   if (allEmpty && allLoaded) {
     return (
       <div className="text-center py-16">
@@ -225,7 +229,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); window.location.reload(); }} />}
     </div>
   );
 }
