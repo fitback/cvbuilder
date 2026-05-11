@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 
-const API = "http://localhost:3001";
 
 export default function RechargePage() {
   const [amount, setAmount] = useState("");
@@ -25,7 +24,7 @@ export default function RechargePage() {
     }
     setLoading(true);
     try {
-      const res = await apiFetch(`${API}/recharges`, {
+      const res = await apiFetch(`${API_BASE}/recharges`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: parseInt(amount), orderNo: orderNo.trim() }),

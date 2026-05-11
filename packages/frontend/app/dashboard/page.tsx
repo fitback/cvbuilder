@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { ResumeItem, JobDescriptionItem } from "@cvbuilder/shared";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 import RechargeApproval from "../../components/RechargeApproval";
 
-const API = "http://localhost:3001";
 
 interface SavedResumeItem {
   analysisRecordId: string;
@@ -36,7 +35,7 @@ export default function DashboardPage() {
 
   async function fetchResumes() {
     try {
-      const res = await apiFetch(`${API}/resumes`);
+      const res = await apiFetch(`${API_BASE}/resumes`);
       const json = await res.json();
       if (json.success) setResumes(json.data ?? []);
     } catch {
@@ -48,7 +47,7 @@ export default function DashboardPage() {
 
   async function fetchJobs() {
     try {
-      const res = await apiFetch(`${API}/jobs`);
+      const res = await apiFetch(`${API_BASE}/jobs`);
       const json = await res.json();
       if (json.success) setJobs(json.data ?? []);
     } catch {
@@ -60,7 +59,7 @@ export default function DashboardPage() {
 
   async function fetchSavedResumes() {
     try {
-      const res = await apiFetch(`${API}/analyze/saved`);
+      const res = await apiFetch(`${API_BASE}/analyze/saved`);
       const json = await res.json();
       if (json.success) setSavedResumes(json.data ?? []);
     } catch {
@@ -71,18 +70,18 @@ export default function DashboardPage() {
   }
 
   async function deleteResume(id: string) {
-    await apiFetch(`${API}/resumes/${id}`, { method: "DELETE" });
+    await apiFetch(`${API_BASE}/resumes/${id}`, { method: "DELETE" });
     await fetchResumes();
   }
 
   async function deleteJob(id: string) {
-    await apiFetch(`${API}/jobs/${id}`, { method: "DELETE" });
+    await apiFetch(`${API_BASE}/jobs/${id}`, { method: "DELETE" });
     await fetchJobs();
   }
 
   async function viewJdDetail(jdId: string) {
     try {
-      const res = await apiFetch(`${API}/jobs/${jdId}`);
+      const res = await apiFetch(`${API_BASE}/jobs/${jdId}`);
       const json = await res.json();
       if (json.success) setViewingJd(json.data);
     } catch {}

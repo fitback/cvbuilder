@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { PointTransactionItem } from "@cvbuilder/shared";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
 
 const TYPE_LABELS: Record<string, string> = {
   credit: "充值",
@@ -23,7 +22,7 @@ export default function PointsModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch(`${API}/points/transactions`)
+    apiFetch(`${API_BASE}/points/transactions`)
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setItems(j.data.items ?? []);

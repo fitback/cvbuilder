@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
 
 export default function PointsBalance({ onOpenModal }: { onOpenModal: () => void }) {
   const [balance, setBalance] = useState<number | null>(null);
@@ -12,7 +11,7 @@ export default function PointsBalance({ onOpenModal }: { onOpenModal: () => void
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch(`${API}/points/balance`)
+    apiFetch(`${API_BASE}/points/balance`)
       .then((r) => r.json())
       .then((j) => {
         if (!cancelled && j.success) setBalance(j.data.balance);

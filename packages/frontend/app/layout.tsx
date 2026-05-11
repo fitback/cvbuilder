@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import AuthModal from "../components/AuthModal";
 import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
-import { isLoggedIn, clearToken, apiFetch } from "../lib/auth";
+import { isLoggedIn, clearToken, apiFetch, API_BASE } from "../lib/auth";
 import "./globals.css";
 
-const API = "http://localhost:3001";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [showAuth, setShowAuth] = useState(false);
@@ -16,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (isLoggedIn()) {
-      apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
+      apiFetch(`${API_BASE}/auth/me`).then((r) => r.json()).then((j) => {
         if (j.success) setUserPhone(j.data.phone);
       });
     }
@@ -27,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         {showPoints && <PointsModal onClose={() => setShowPoints(false)} />}
         {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => {
-          apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
+          apiFetch(`${API_BASE}/auth/me`).then((r) => r.json()).then((j) => {
             if (j.success) setUserPhone(j.data.phone);
           });
         }} />}

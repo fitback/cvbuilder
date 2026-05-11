@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { RechargeItem } from "@cvbuilder/shared";
-import { apiFetch } from "../../../lib/auth";
+import { apiFetch, API_BASE } from "../../../lib/auth";
 
-const API = "http://localhost:3001";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   pending: { label: "待审核", className: "bg-amber-50 text-amber-700" },
@@ -17,7 +16,7 @@ export default function RechargeHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch(`${API}/recharges`)
+    apiFetch(`${API_BASE}/recharges`)
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setItems(j.data ?? []);

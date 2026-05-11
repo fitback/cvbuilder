@@ -2,9 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 
-const API = "http://localhost:3001";
 
 export default function UploadPage() {
   const [dragOver, setDragOver] = useState(false);
@@ -30,7 +29,7 @@ export default function UploadPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await apiFetch(`${API}/resumes/upload`, { method: "POST", body: form });
+      const res = await apiFetch(`${API_BASE}/resumes/upload`, { method: "POST", body: form });
       const json = await res.json();
       if (!json.success) {
         setError(json.error?.message ?? "上传失败");

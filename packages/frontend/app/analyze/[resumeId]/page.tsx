@@ -3,11 +3,10 @@
 import { useEffect, useState, use } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import { JobDescriptionItem, AnalysisResult, ResumeDetail, AnalysisHistoryItem } from "@cvbuilder/shared";
-import { apiFetch } from "../../../lib/auth";
+import { apiFetch, API_BASE } from "../../../lib/auth";
 import InsufficientPoints from "../../../components/InsufficientPoints";
 import OriginalResumeCard from "../../../components/OriginalResumeCard";
 
-const API = "http://localhost:3001";
 
 export default function AnalyzePage({ params, searchParams }: { params: Promise<{ resumeId: string }>; searchParams: Promise<{ record?: string }> }) {
   const { resumeId } = use(params);
@@ -32,13 +31,13 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiFetch(`${API}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
-    apiFetch(`${API}/jobs`).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
+    apiFetch(`${API_BASE}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
+    apiFetch(`${API_BASE}/jobs`).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
     fetchHistory();
   }, [resumeId]);
 
   async function fetchHistory() {
-    const res = await apiFetch(`${API}/analyze?resumeId=${resumeId}`);
+    const res = await apiFetch(`${API_BASE}/analyze?resumeId=${resumeId}`);
     const json = await res.json();
     const items: AnalysisHistoryItem[] = json.data ?? [];
     setHistory(items);
@@ -52,14 +51,14 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
 
   async function loadDetail(recordId: string) {
     setViewingHistoryId(recordId);
-    const res = await apiFetch(`${API}/analyze/${recordId}`);
+    const res = await apiFetch(`${API_BASE}/analyze/${recordId}`);
     const json = await res.json();
     if (json.success) {
       setResult(json.data);
     }
     // Also try to load saved markdown
     try {
-      const genRes = await apiFetch(`${API}/generate/${recordId}`);
+      const genRes = await apiFetch(`${API_BASE}/generate/${recordId}`);
       const genJson = await genRes.json();
       if (genJson.success && genJson.data.markdown) {
         setGeneratedMarkdown(genJson.data.markdown);
@@ -74,7 +73,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
     setAnalyzing(true);
 
     try {
-      const res = await apiFetch(`${API}/analyze`, {
+      const res = await apiFetch(`${API_BASE}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -108,7 +107,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
     setGeneratedMarkdown("");
     setError("");
     try {
-      const res = await apiFetch(`${API}/generate`, {
+      const res = await apiFetch(`${API_BASE}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -141,7 +140,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
   async function exportPdf() {
     try {
       const content = savedMarkdown || generatedMarkdown;
-      const res = await apiFetch(`${API}/export/pdf`, {
+      const res = await apiFetch(`${API_BASE}/export/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markdown: content }),
@@ -162,7 +161,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
   async function viewJdDetail(jdId: string) {
     setViewingJdLoading(true);
     try {
-      const res = await apiFetch(`${API}/jobs/${jdId}`);
+      const res = await apiFetch(`${API_BASE}/jobs/${jdId}`);
       const json = await res.json();
       if (json.success) setViewingJd(json.data);
     } catch { setViewingJd(null); }
@@ -174,7 +173,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch(`${API}/generate/${viewingHistoryId}`, {
+      const res = await apiFetch(`${API_BASE}/generate/${viewingHistoryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markdown: generatedMarkdown }),

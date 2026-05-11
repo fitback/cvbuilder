@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { PendingRecharge } from "@cvbuilder/shared";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
 
 export default function RechargeApproval() {
   const [items, setItems] = useState<PendingRecharge[]>([]);
@@ -14,7 +13,7 @@ export default function RechargeApproval() {
   async function fetchPending() {
     setError(false);
     try {
-      const res = await apiFetch(`${API}/recharges/pending`);
+      const res = await apiFetch(`${API_BASE}/recharges/pending`);
       const json = await res.json();
       if (json.success) setItems(json.data ?? []);
       if (!json.success && json.error?.code === "UNAUTHORIZED") {
@@ -32,13 +31,13 @@ export default function RechargeApproval() {
   }, []);
 
   async function handleApprove(id: string) {
-    await apiFetch(`${API}/recharges/${id}/approve`, { method: "POST" });
+    await apiFetch(`${API_BASE}/recharges/${id}/approve`, { method: "POST" });
     await fetchPending();
   }
 
   async function handleReject(id: string) {
     const note = prompt("驳回原因（可选）：");
-    await apiFetch(`${API}/recharges/${id}/reject`, {
+    await apiFetch(`${API_BASE}/recharges/${id}/reject`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note: note || undefined }),
