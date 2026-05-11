@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import AuthModal from "../components/AuthModal";
+import PointsBalance from "../components/PointsBalance";
+import PointsModal from "../components/PointsModal";
 import { isLoggedIn, clearToken, apiFetch } from "../lib/auth";
 import "./globals.css";
 
@@ -10,6 +12,7 @@ const API = "http://localhost:3001";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [showAuth, setShowAuth] = useState(false);
   const [userPhone, setUserPhone] = useState("");
+  const [showPoints, setShowPoints] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn()) {
@@ -22,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body className="min-h-screen">
+        {showPoints && <PointsModal onClose={() => setShowPoints(false)} />}
         {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => {
           apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
             if (j.success) setUserPhone(j.data.phone);
@@ -35,7 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/dashboard" className="px-3 py-2 rounded text-sm text-accent bg-surface-tertiary font-medium">仪表盘</a>
               <a href="/upload" className="px-3 py-2 rounded text-sm text-text-secondary hover:bg-surface-tertiary">上传简历</a>
               <a href="/jobs" className="px-3 py-2 rounded text-sm text-text-secondary hover:bg-surface-tertiary">我的 JD</a>
+              <a href="/recharge" className="px-3 py-2 rounded text-sm text-text-secondary hover:bg-surface-tertiary">充值</a>
             </nav>
+            <PointsBalance onOpenModal={() => setShowPoints(true)} />
             <div className="pt-4 border-t border-border-light">
               {userPhone ? (
                 <div className="flex items-center justify-between">
