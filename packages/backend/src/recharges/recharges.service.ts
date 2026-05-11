@@ -1,10 +1,12 @@
-import { Injectable, HttpException } from "@nestjs/common";
+import { Injectable, HttpException, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PointsService } from "../points/points.service";
 import { ErrorCode } from "@cvbuilder/shared";
 
 @Injectable()
 export class RechargesService {
+  private readonly logger = new Logger(RechargesService.name);
+
   constructor(
     private prisma: PrismaService,
     private points: PointsService,
@@ -105,6 +107,7 @@ export class RechargesService {
       record.id,
     );
 
+    this.logger.log(`Recharge approved: ${id} userId=${record.userId} amount=${record.amount} points=${record.points} adminId=${adminId}`);
     return { success: true };
   }
 

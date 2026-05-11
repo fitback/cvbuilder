@@ -4,6 +4,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import { PrismaService } from "../prisma/prisma.service";
 import { ErrorCode } from "@cvbuilder/shared";
+import { CreateRechargeDto, RejectRechargeDto } from "./recharges.dto";
 
 @Controller("recharges")
 @UseGuards(AuthGuard)
@@ -15,7 +16,7 @@ export class RechargesController {
   ) {}
 
   @Post()
-  async create(@Body() body: { amount: number; orderNo: string }, @Req() req: any) {
+  async create(@Body() body: CreateRechargeDto, @Req() req: any) {
     return this.rechargesService.create(req.userId, body.amount, body.orderNo);
   }
 
@@ -39,7 +40,7 @@ export class RechargesController {
   }
 
   @Post(":id/reject")
-  async reject(@Param("id") id: string, @Body() body: { note?: string }, @Req() req: any) {
+  async reject(@Param("id") id: string, @Body() body: RejectRechargeDto, @Req() req: any) {
     return this.rechargesService.reject(id, req.userId, body.note);
   }
 }

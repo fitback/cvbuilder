@@ -42,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/recharge" className="px-3 py-2 rounded text-sm text-text-secondary hover:bg-surface-tertiary">充值</a>
             </nav>
             <PointsBalance onOpenModal={() => setShowPoints(true)} />
+            <a href="/privacy" className="text-[10px] text-text-muted hover:text-text-secondary px-1 py-1">隐私协议</a>
             <div className="pt-4 border-t border-border-light">
               {userPhone ? (
                 <div className="flex items-center justify-between">

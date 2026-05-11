@@ -1,4 +1,4 @@
-import { Injectable, HttpException } from "@nestjs/common";
+import { Injectable, HttpException, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ErrorCode } from "@cvbuilder/shared";
 import * as bcrypt from "bcryptjs";
@@ -6,6 +6,8 @@ import { JwtService } from "@nestjs/jwt";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -30,6 +32,7 @@ export class AuthService {
     await this.prisma.pointTransaction.create({
       data: { userId: user.id, type: "credit", amount: 30, balance: 30, description: "新用户赠送" },
     });
+    this.logger.log(`User registered: ${user.id} phone=${phone}`);
     const token = this.jwt.sign({ sub: user.id });
     return { userId: user.id, token };
   }
@@ -37,8 +40,10 @@ export class AuthService {
   async login(phone: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+      this.logger.warn(`Login failed: phone=${phone}`);
       throw new HttpException({ code: ErrorCode.UNAUTHORIZED, message: "手机号或密码错误" }, 401);
     }
+    this.logger.log(`User logged in: ${user.id}`);
     const token = this.jwt.sign({ sub: user.id });
     return { userId: user.id, token };
   }
