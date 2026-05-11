@@ -8,7 +8,7 @@ import { AuthGuard } from "./auth.guard";
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || "dev-secret-change-me",
+      secret: process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET environment variable is required"); })(),
       signOptions: { expiresIn: "7d" },
     }),
   ],

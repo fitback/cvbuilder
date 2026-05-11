@@ -82,6 +82,12 @@ export class GenerateService {
         ]),
       );
 
+      // Persist generated markdown in analysisResult
+      await this.prisma.analysisRecord.update({
+        where: { id: body.analysisRecordId },
+        data: { analysisResult: { ...analysisResult, generatedResume: markdown } },
+      });
+
       return {
         markdown,
         resumeId: body.resumeId,
@@ -93,5 +99,17 @@ export class GenerateService {
       }
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "AI服务暂时不可用，请稍后重试" }, 503);
     }
+  }
+
+  async getGenerated(analysisRecordId: string, userId: string) {
+    const analysis = await this.prisma.analysisRecord.findUnique({ where: { id: analysisRecordId } });
+    if (!analysis || analysis.userId !== userId) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
+    }
+    const result = analysis.analysisResult as any;
+    if (!result?.generatedResume) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "尚未生成简历" }, 404);
+    }
+    return { markdown: result.generatedResume, analysisRecordId };
   }
 }

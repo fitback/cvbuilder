@@ -1,8 +1,10 @@
-import { Controller, Post, Body, Res } from "@nestjs/common";
+import { Controller, Post, Body, Res, UseGuards } from "@nestjs/common";
 import { Response } from "express";
 import { ExportService } from "./export.service";
+import { AuthGuard } from "../auth/auth.guard";
 
 @Controller("export")
+@UseGuards(AuthGuard)
 export class ExportController {
   constructor(private readonly exportService: ExportService) {}
 

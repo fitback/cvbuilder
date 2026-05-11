@@ -8,13 +8,20 @@ const API = "http://localhost:3001";
 export default function PointsBalance({ onOpenModal }: { onOpenModal: () => void }) {
   const [balance, setBalance] = useState<number | null>(null);
 
+  async function fetchBalance() {
+    try {
+      const res = await apiFetch(`${API}/points/balance`);
+      const json = await res.json();
+      if (json.success) setBalance(json.data.balance);
+    } catch {}
+  }
+
+  useEffect(() => { fetchBalance(); }, []);
+
   useEffect(() => {
-    apiFetch(`${API}/points/balance`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) setBalance(j.data.balance);
-      })
-      .catch(() => {});
+    const handler = () => fetchBalance();
+    window.addEventListener("points-updated", handler);
+    return () => window.removeEventListener("points-updated", handler);
   }, []);
 
   if (balance === null) return null;

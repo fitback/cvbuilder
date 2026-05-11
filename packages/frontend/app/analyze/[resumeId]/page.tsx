@@ -75,6 +75,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       }
       setResult(json.data);
       setRemaining(json.data.remainingFreeCount);
+      window.dispatchEvent(new CustomEvent("points-updated"));
       await fetchHistory();
     } catch {
       setError("网络错误，请重试");
@@ -107,6 +108,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
         return;
       }
       setGeneratedMarkdown(json.data.markdown);
+      window.dispatchEvent(new CustomEvent("points-updated"));
     } catch {
       setError("网络错误，请重试");
     } finally {
