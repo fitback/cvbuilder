@@ -1,5 +1,6 @@
 import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { PointsService } from "../points/points.service";
 import { GenerateRequest, GenerateResponse, ErrorCode } from "@cvbuilder/shared";
 import { CircuitBreaker } from "../analyze/circuit-breaker";
 import { readFileSync } from "fs";
@@ -39,7 +40,10 @@ async function callDeepSeek(messages: any[], temperature = 0.4): Promise<string>
 
 @Injectable()
 export class GenerateService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private points: PointsService,
+  ) {}
 
   async generate(body: GenerateRequest, userId: string): Promise<GenerateResponse> {
     const resume = await this.prisma.resume.findUnique({ where: { id: body.resumeId } });
@@ -60,6 +64,13 @@ export class GenerateService {
 
     const analysisResult = analysis.analysisResult as any;
 
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const isAdmin = user.role === "admin";
+
+    if (!isAdmin) {
+      await this.points.deduct(userId, 50, "生成简历", body.resumeId);
+    }
+
     try {
       const markdown = await breaker.call(() =>
         callDeepSeek([
@@ -77,6 +88,9 @@ export class GenerateService {
         analysisRecordId: body.analysisRecordId,
       };
     } catch {
+      if (!isAdmin) {
+        await this.points.refund(userId, 50, "生成失败退还", body.resumeId).catch(() => {});
+      }
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "AI服务暂时不可用，请稍后重试" }, 503);
     }
   }
