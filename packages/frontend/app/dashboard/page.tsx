@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ResumeItem } from "@cvbuilder/shared";
 import { apiFetch } from "../../lib/auth";
+import RechargeApproval from "../../components/RechargeApproval";
 
 const API = "http://localhost:3001";
 
@@ -57,6 +58,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      <RechargeApproval />
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-xl font-semibold">我的简历</h2>
@@ -83,7 +85,7 @@ export default function DashboardPage() {
               <div>
                 <div className="text-sm font-medium">{r.fileNameOriginal}</div>
                 <div className="text-xs text-text-muted mt-1">
-                  上传于 {new Date(r.createdAt).toLocaleDateString("zh-CN")} · {r.parseStatus === "parsed" ? "解析完成" : r.parseStatus === "parsing" ? "解析中..." : "解析失败"}{r.parseStatus === "parsed" && r.analysisCount > 0 && ` · 已分析 ${r.analysisCount} 次`}{r.parseStatus === "parsed" && ` · 剩余 ${r.freeAnalysisCount} 次`}
+                  上传于 {new Date(r.createdAt).toLocaleDateString("zh-CN")} · {r.parseStatus === "parsed" ? "解析完成" : r.parseStatus === "parsing" ? "解析中..." : "解析失败"}{r.parseStatus === "parsed" && r.analysisCount > 0 && ` · 已分析 ${r.analysisCount} 次`}
                 </div>
               </div>
               <div className="flex gap-2">
