@@ -23,7 +23,7 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({
-    origin: ["http://localhost:3000", /^https:\/\/.*\.ngrok-free\.app$/],
+    origin: ["http://localhost:3000", /^https:\/\/.*\.ngrok-free\.(app|dev)$/],
     credentials: true,
   });
   await app.listen(3001);
