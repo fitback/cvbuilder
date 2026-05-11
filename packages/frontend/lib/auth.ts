@@ -33,3 +33,5 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
   return fetch(url, { ...options, headers });
 }
+
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
