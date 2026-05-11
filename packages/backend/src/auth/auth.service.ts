@@ -25,7 +25,10 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.create({
-      data: { phone, passwordHash: bcrypt.hashSync(password, 10) },
+      data: { phone, passwordHash: bcrypt.hashSync(password, 10), points: 30 },
+    });
+    await this.prisma.pointTransaction.create({
+      data: { userId: user.id, type: "credit", amount: 30, balance: 30, description: "新用户赠送" },
     });
     const token = this.jwt.sign({ sub: user.id });
     return { userId: user.id, token };
@@ -43,6 +46,11 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "用户不存在" }, 404);
-    return { id: user.id, phone: user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2") };
+    return {
+      id: user.id,
+      phone: user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2"),
+      points: user.points,
+      role: user.role,
+    };
   }
 }
