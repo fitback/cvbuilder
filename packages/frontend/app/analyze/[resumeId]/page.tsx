@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import { JobDescriptionItem, AnalysisResult, ResumeDetail, AnalysisHistoryItem } from "@cvbuilder/shared";
 import { apiFetch } from "../../../lib/auth";
+import InsufficientPoints from "../../../components/InsufficientPoints";
 
 const API = "http://localhost:3001";
 
@@ -20,6 +21,9 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
   const [generatedMarkdown, setGeneratedMarkdown] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [showInsufficient, setShowInsufficient] = useState(false);
+  const [pointsNeeded, setPointsNeeded] = useState(0);
+  const [currentBalance, setCurrentBalance] = useState(0);
 
   useEffect(() => {
     apiFetch(`${API}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
@@ -60,6 +64,12 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       });
       const json = await res.json();
       if (!json.success) {
+        if (json.error?.code === "QUOTA_EXCEEDED") {
+          setPointsNeeded(30);
+          setCurrentBalance(0);
+          setShowInsufficient(true);
+          return;
+        }
         setError(json.error?.message ?? "分析失败");
         return;
       }
@@ -87,6 +97,12 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       });
       const json = await res.json();
       if (!json.success) {
+        if (json.error?.code === "QUOTA_EXCEEDED") {
+          setPointsNeeded(50);
+          setCurrentBalance(0);
+          setShowInsufficient(true);
+          return;
+        }
         setError(json.error?.message ?? "生成失败");
         return;
       }
@@ -214,7 +230,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
           {!generatedMarkdown && (
             <div className="mt-4 flex justify-center">
               <button onClick={startGenerate} disabled={generating} className="px-5 py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors">
-                {generating ? "生成中..." : "✨ 生成优化简历"}
+                {generating ? "生成中..." : "✨ 生成优化简历 · 消耗 50 积分"}
               </button>
             </div>
           )}
@@ -270,11 +286,9 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
           </div>
         )}
         <button onClick={startAnalyze} disabled={!selectedJd || analyzing} className="px-5 py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors">
-          {analyzing ? "分析中..." : "免费分析"}
+          {analyzing ? "分析中..." : "AI分析 · 消耗 30 积分"}
         </button>
-        {resume.freeAnalysisCount !== undefined && (
-          <p className="text-xs text-text-muted mt-2">剩余免费分析 {resume.freeAnalysisCount} 次</p>
-        )}
+        <p className="text-xs text-text-muted mt-2">消耗 30 积分</p>
       </div>
 
       {analyzing && (
@@ -289,6 +303,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
         </div>
       )}
 
+      {showInsufficient && <InsufficientPoints needed={pointsNeeded} current={currentBalance} onClose={() => setShowInsufficient(false)} />}
       {error && (
         <div className="mt-4 p-4 bg-red-50 text-error text-sm rounded-md flex justify-between items-center">
           <span>{error}</span>
