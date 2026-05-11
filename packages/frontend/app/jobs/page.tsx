@@ -2,20 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { JobDescriptionItem } from "@cvbuilder/shared";
-import { apiFetch, API_BASE } from "../../lib/auth";
-
+import { apiFetch, API_BASE, isLoggedIn } from "../../lib/auth";
+import AuthModal from "../../components/AuthModal";
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<JobDescriptionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function fetchJobs() {
+    if (!isLoggedIn()) { setShowAuth(true); setLoading(false); return; }
     try {
       const res = await apiFetch(`${API_BASE}/jobs`);
       const json = await res.json();
@@ -114,6 +116,7 @@ export default function JobsPage() {
           ))}
         </div>
       )}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); fetchJobs(); }} />}
     </div>
   );
 }

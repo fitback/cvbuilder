@@ -2,17 +2,27 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, API_BASE } from "../../lib/auth";
-
+import { apiFetch, API_BASE, isLoggedIn } from "../../lib/auth";
+import AuthModal from "../../components/AuthModal";
 
 export default function UploadPage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [showAuth, setShowAuth] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  function requireAuth(): boolean {
+    if (!isLoggedIn()) {
+      setShowAuth(true);
+      return false;
+    }
+    return true;
+  }
+
   async function uploadFile(file: File) {
+    if (!requireAuth()) return;
     setError("");
 
     const ext = file.name.split(".").pop()?.toLowerCase();
@@ -71,6 +81,7 @@ export default function UploadPage() {
       {error && (
         <div className="mt-4 p-3 bg-red-50 text-error text-sm rounded">{error}</div>
       )}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => setShowAuth(false)} />}
     </div>
   );
 }
