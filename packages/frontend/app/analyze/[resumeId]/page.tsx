@@ -25,6 +25,10 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
   const [showInsufficient, setShowInsufficient] = useState(false);
   const [pointsNeeded, setPointsNeeded] = useState(0);
   const [currentBalance, setCurrentBalance] = useState(0);
+  const [viewingJd, setViewingJd] = useState<{ title: string; company?: string; content: string } | null>(null);
+  const [viewingJdLoading, setViewingJdLoading] = useState(false);
+  const [savedMarkdown, setSavedMarkdown] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     apiFetch(`${API}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
@@ -123,10 +127,11 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
 
   async function exportPdf() {
     try {
+      const content = savedMarkdown || generatedMarkdown;
       const res = await apiFetch(`${API}/export/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown: generatedMarkdown }),
+        body: JSON.stringify({ markdown: content }),
       });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
@@ -138,6 +143,39 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       URL.revokeObjectURL(url);
     } catch {
       setError("PDF 导出失败");
+    }
+  }
+
+  async function viewJdDetail(jdId: string) {
+    setViewingJdLoading(true);
+    try {
+      const res = await apiFetch(`${API}/jobs/${jdId}`);
+      const json = await res.json();
+      if (json.success) setViewingJd(json.data);
+    } catch { setViewingJd(null); }
+    finally { setViewingJdLoading(false); }
+  }
+
+  async function saveResume() {
+    if (!viewingHistoryId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API}/generate/${viewingHistoryId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: generatedMarkdown }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error?.message ?? "保存失败");
+        return;
+      }
+      setSavedMarkdown(generatedMarkdown);
+    } catch {
+      setError("网络错误，保存失败");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -250,15 +288,25 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       {generatedMarkdown && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">简历对比</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold">简历对比</h3>
+              {savedMarkdown && (
+                <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded">已保存</span>
+              )}
+            </div>
             <div className="flex gap-2">
               <button onClick={copyMarkdown} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
-                复制优化版
+                复制
               </button>
+              {!savedMarkdown && (
+                <button onClick={saveResume} disabled={saving} className="px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors">
+                  {saving ? "保存中..." : "确定保存"}
+                </button>
+              )}
               <button onClick={exportPdf} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
                 导出 PDF
               </button>
-              <button onClick={() => setGeneratedMarkdown("")} className="px-3 py-1.5 text-xs text-text-muted hover:text-error transition-colors">
+              <button onClick={() => { setGeneratedMarkdown(""); setSavedMarkdown(""); }} className="px-3 py-1.5 text-xs text-text-muted hover:text-error transition-colors">
                 收起
               </button>
             </div>
@@ -295,10 +343,17 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
             {jobs.map((j) => (
               <label key={j.id} className={`flex items-center gap-3 p-3 border rounded cursor-pointer transition-colors ${selectedJd === j.id ? "border-accent bg-accent/5" : "border-border-light hover:border-text-muted"}`}>
                 <input type="radio" name="jd" value={j.id} checked={selectedJd === j.id} onChange={() => setSelectedJd(j.id)} className="accent-accent" />
-                <div>
+                <div className="flex-1">
                   <div className="text-sm font-medium">{j.title}</div>
                   {j.company && <div className="text-xs text-text-muted">{j.company}</div>}
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewJdDetail(j.id); }}
+                  className="text-xs text-accent hover:underline shrink-0"
+                >
+                  查看详情
+                </button>
               </label>
             ))}
           </div>
@@ -322,6 +377,29 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       )}
 
       {showInsufficient && <InsufficientPoints needed={pointsNeeded} current={currentBalance} onClose={() => setShowInsufficient(false)} />}
+      {(viewingJd || viewingJdLoading) && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setViewingJd(null)}>
+          <div className="bg-surface rounded-lg p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            {viewingJdLoading ? (
+              <div className="space-y-3">
+                <div className="h-5 bg-surface-tertiary rounded animate-pulse w-1/2" />
+                <div className="h-4 bg-surface-tertiary rounded animate-pulse w-1/3" />
+                <div className="h-4 bg-surface-tertiary rounded animate-pulse w-full" />
+                <div className="h-4 bg-surface-tertiary rounded animate-pulse w-3/4" />
+              </div>
+            ) : viewingJd && (
+              <>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">{viewingJd.title}</h3>
+                  <button onClick={() => setViewingJd(null)} className="text-text-muted hover:text-text-secondary text-lg leading-none">×</button>
+                </div>
+                {viewingJd.company && <p className="text-sm text-text-secondary mb-3">{viewingJd.company}</p>}
+                <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed border-t border-border-light pt-3">{viewingJd.content}</div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {error && (
         <div className="mt-4 p-4 bg-red-50 text-error text-sm rounded-md flex justify-between items-center">
           <span>{error}</span>

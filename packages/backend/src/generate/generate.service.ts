@@ -101,6 +101,19 @@ export class GenerateService {
     }
   }
 
+  async saveEdited(analysisRecordId: string, markdown: string, userId: string) {
+    const analysis = await this.prisma.analysisRecord.findUnique({ where: { id: analysisRecordId } });
+    if (!analysis || analysis.userId !== userId) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
+    }
+    const result = (analysis.analysisResult as any) ?? {};
+    await this.prisma.analysisRecord.update({
+      where: { id: analysisRecordId },
+      data: { analysisResult: { ...result, editedResume: markdown } },
+    });
+    return { success: true };
+  }
+
   async getGenerated(analysisRecordId: string, userId: string) {
     const analysis = await this.prisma.analysisRecord.findUnique({ where: { id: analysisRecordId } });
     if (!analysis || analysis.userId !== userId) {

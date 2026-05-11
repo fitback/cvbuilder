@@ -25,6 +25,14 @@ export class JobsService {
     return jobs.map((j) => ({ ...j, company: j.company ?? undefined, createdAt: j.createdAt.toISOString() }));
   }
 
+  async detail(id: string, userId: string) {
+    const jd = await this.prisma.jobDescription.findUnique({ where: { id } });
+    if (!jd || jd.userId !== userId) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "JD不存在" }, 404);
+    }
+    return { id: jd.id, title: jd.title, company: jd.company, content: jd.content, createdAt: jd.createdAt.toISOString() };
+  }
+
   async delete(id: string, userId: string): Promise<{ success: true }> {
     const jd = await this.prisma.jobDescription.findUnique({ where: { id } });
     if (!jd || jd.userId !== userId) {

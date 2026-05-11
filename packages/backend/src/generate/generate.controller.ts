@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Controller, Post, Get, Put, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { GenerateService } from "./generate.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -18,5 +18,10 @@ export class GenerateController {
   @Get(":analysisRecordId")
   async getGenerated(@Param("analysisRecordId") analysisRecordId: string, @Req() req: any) {
     return this.generateService.getGenerated(analysisRecordId, req.userId);
+  }
+
+  @Put(":analysisRecordId")
+  async saveEdited(@Param("analysisRecordId") analysisRecordId: string, @Body() body: { markdown: string }, @Req() req: any) {
+    return this.generateService.saveEdited(analysisRecordId, body.markdown, req.userId);
   }
 }

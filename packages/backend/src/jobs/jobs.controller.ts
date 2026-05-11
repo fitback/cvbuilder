@@ -20,6 +20,11 @@ export class JobsController {
     return this.jobsService.list(req.userId);
   }
 
+  @Get(":id")
+  async detail(@Param("id") id: string, @Req() req: any) {
+    return this.jobsService.detail(id, req.userId);
+  }
+
   @Delete(":id")
   async delete(@Param("id") id: string, @Req() req: any): Promise<{ success: true }> {
     return this.jobsService.delete(id, req.userId);
