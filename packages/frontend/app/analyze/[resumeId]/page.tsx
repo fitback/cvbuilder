@@ -5,6 +5,7 @@ import MDEditor from "@uiw/react-md-editor";
 import { JobDescriptionItem, AnalysisResult, ResumeDetail, AnalysisHistoryItem } from "@cvbuilder/shared";
 import { apiFetch } from "../../../lib/auth";
 import InsufficientPoints from "../../../components/InsufficientPoints";
+import OriginalResumeCard from "../../../components/OriginalResumeCard";
 
 const API = "http://localhost:3001";
 
@@ -249,10 +250,10 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       {generatedMarkdown && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">生成的简历</h3>
+            <h3 className="text-lg font-semibold">简历对比</h3>
             <div className="flex gap-2">
               <button onClick={copyMarkdown} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
-                复制
+                复制优化版
               </button>
               <button onClick={exportPdf} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
                 导出 PDF
@@ -262,8 +263,23 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
               </button>
             </div>
           </div>
-          <div data-color-mode="light">
-            <MDEditor value={generatedMarkdown} onChange={(v) => setGeneratedMarkdown(v || "")} height={600} visibleDragbar={false} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs px-2 py-0.5 bg-surface-tertiary text-text-muted rounded">原始版本</span>
+              </div>
+              {resume?.parseResult && <OriginalResumeCard data={resume.parseResult} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs px-2 py-0.5 bg-accent/10 text-accent rounded">AI 优化版</span>
+              </div>
+              <div className="border border-accent/30 rounded-md overflow-hidden">
+                <div data-color-mode="light">
+                  <MDEditor value={generatedMarkdown} onChange={(v) => setGeneratedMarkdown(v || "")} height={600} visibleDragbar={false} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
