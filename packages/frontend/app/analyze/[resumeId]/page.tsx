@@ -302,7 +302,7 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <h3 className="text-lg font-semibold">简历对比</h3>
-              {savedMarkdown && (
+              {savedMarkdown && generatedMarkdown === savedMarkdown && (
                 <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded">已保存</span>
               )}
             </div>
@@ -310,9 +310,9 @@ export default function AnalyzePage({ params, searchParams }: { params: Promise<
               <button onClick={copyMarkdown} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
                 复制
               </button>
-              {!savedMarkdown && (
+              {generatedMarkdown !== savedMarkdown && (
                 <button onClick={saveResume} disabled={saving} className="px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors">
-                  {saving ? "保存中..." : "确定保存"}
+                  {saving ? "保存中..." : savedMarkdown ? "再次保存" : "确定保存"}
                 </button>
               )}
               <button onClick={exportPdf} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary transition-colors">
