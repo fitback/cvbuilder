@@ -6,7 +6,7 @@ import AuthModal from "../components/AuthModal";
 import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
 import { ToastProvider } from "../components/Toast";
-import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut } from "../components/icons";
+import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut, ShieldAlert } from "../components/icons";
 import { isLoggedIn, clearToken, apiFetch } from "../lib/auth";
 import "./globals.css";
 
@@ -19,16 +19,24 @@ const navItems = [
   { href: "/recharge", label: "充值", icon: Coins },
 ];
 
+const adminNavItem = { href: "/admin", label: "管理", icon: ShieldAlert };
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [showAuth, setShowAuth] = useState(false);
   const [userPhone, setUserPhone] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [showPoints, setShowPoints] = useState(false);
+
+  const allNavItems = userRole === "admin" ? [...navItems, adminNavItem] : navItems;
 
   useEffect(() => {
     if (isLoggedIn()) {
       apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
-        if (j.success) setUserPhone(j.data.phone);
+        if (j.success) {
+          setUserPhone(j.data.phone);
+          setUserRole(j.data.role);
+        }
       });
     }
   }, []);
@@ -52,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 ResumeMatcher
               </h1>
               <nav className="flex flex-col gap-1 flex-1">
-                {navItems.map(({ href, label, icon: Icon }) => {
+                {allNavItems.map(({ href, label, icon: Icon }) => {
                   const active = isActive(href);
                   return (
                     <a
@@ -107,7 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
 
           <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#EBEBEB] flex justify-around items-center py-1 z-50 safe-area-bottom">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {allNavItems.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
               return (
                 <a

@@ -6,102 +6,100 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ResumeMatcher — 面向国内求职者的简历优化与岗位匹配平台。三大核心功能：简历分析（AI 评估匹配度 + 优化建议）、简历生成（AI 重构高匹配度简历）、在线编辑 + PDF 导出。
 
-详见 `TECH-DESIGN.md` 获取完整技术设计。
-
 ## Tech Stack
 
-| 层级 | 技术 |
-|-----|------|
-| Frontend | Next.js 15 (App Router) + Tailwind CSS 4 + React 19 |
+| Layer | Tech |
+|-------|------|
+| Frontend | Next.js 15 (App Router) + Tailwind CSS + React 19 |
 | Backend | NestJS 11 (Express) |
-| Database | PostgreSQL 16 (JSONB) + Prisma ORM |
+| Database | PostgreSQL 16 + Prisma ORM |
 | Queue | BullMQ + Redis 7 (async resume parsing) |
 | AI | DeepSeek (`deepseek-chat`), temp 0.3 (分析) / 0.4 (生成) / 0.1 (解析) |
 | File Parsing | `mammoth` (.docx) + `pdfjs-dist` (.pdf) |
 | Markdown Editor | `@uiw/react-md-editor` |
-| PDF Export | `puppeteer-core` (backend-rendered HTML, Source Han Sans CN) |
-| Auth | `@nestjs/jwt` + `@nestjs/passport` (JWT Bearer token, bcrypt password hashing) |
-| File Storage | Local disk `/data/resumes/` with UUID filenames, not in public dir |
+| PDF Export | `puppeteer-core` (backend-rendered HTML) |
+| Auth | JWT Bearer token + bcrypt |
+| File Storage | Local disk with UUID filenames (not publicly accessible) |
 
 ## Project Structure
 
 Monorepo (npm workspaces):
-- `packages/frontend/` — Next.js App Router with pages: `/`, `/upload`, `/dashboard`, `/jobs`, `/analyze/[resumeId]`
-- `packages/backend/` — NestJS with modules: `prisma`, `auth`, `resumes`, `jobs`, `analyze`, `generate`, `export`
-- `packages/shared/` — TypeScript types and DTOs shared between frontend and backend
+- `packages/frontend/` — Next.js App Router (port 3000)
+- `packages/backend/` — NestJS with modules: `prisma`, `auth`, `resumes`, `jobs`, `analyze`, `generate`, `export`, `points`, `recharges`, `generated-resumes`
+- `packages/shared/` — TypeScript types/DTOs (must build before frontend/backend)
 
-## Getting Started
+## Common Commands
 
 ```bash
+# Install all dependencies
 npm install
-docker compose up -d                  # PostgreSQL + Redis
-npm run db:push -w packages/backend   # sync Prisma schema to DB
 
-# Terminal 1: Backend (port 3001)
+# Start infrastructure (PostgreSQL + Redis)
+docker compose up -d
+
+# Sync Prisma schema to DB
+npm run db:push -w packages/backend
+
+# Generate Prisma client (after schema changes)
+npm run db:generate -w packages/backend
+
+# Build shared types (required before frontend build)
+npm run build -w packages/shared
+
+# Start backend (port 3001)
 npm run dev:backend
 
-# Terminal 2: Parse worker (processes resume parsing queue)
+# Start parse worker (processes resume parsing queue, separate terminal)
 npx ts-node packages/backend/src/resumes/parse.worker.ts
 
-# Terminal 3: Frontend (port 3000)
+# Start frontend (port 3000)
 npm run dev:frontend
+
+# Build frontend (checks types + produces optimized build)
+npm run build -w packages/frontend
 ```
+
+The shared package must be built (`npm run build -w packages/shared`) before the frontend build can resolve the new types. The frontend dev server reads dist output from the hoisted `node_modules/@cvbuilder/shared` (symlinked to `packages/shared`).
 
 ## Key Architecture
 
-- **Global response interceptor** (`ApiResponseInterceptor`): all successful responses are wrapped `{success: true, data}`, errors wrapped `{success: false, error: {code, message}}`. Controllers return raw data; the interceptor does the wrapping.
-- **Auth flow**: JWT stored in `localStorage`, sent as `Authorization: Bearer <token>`. `AuthGuard` validates the token and sets `req.userId` from `payload.sub`. Frontend `apiFetch()` in `lib/auth.ts` auto-attaches the token.
-- **Async resume parsing**: upload creates a DB record + enqueues a BullMQ job → `parse.worker.ts` extracts text (mammoth/pdfjs-dist) → calls DeepSeek to extract structured JSON → updates `parseStatus` to `parsed`/`failed`. Dashboard must poll for status changes.
-- **Two-stage AI pipeline**: "分析大师" (`prompts/analyze-master.md`) produces match score + optimization suggestions → "生成大师" (`prompts/generate-master.md`) consumes analysis output + resume JSON to produce a Markdown resume.
-- **Analysis idempotency**: `AnalysisRecord` has a `@@unique([resumeId, jobDescriptionId])` constraint. Re-analyzing the same pair returns cached results without consuming a free count.
-- **Free tier gating**: each resume has `freeAnalysisCount` (default 3). Analysis endpoint atomically decrements with a `gt: 0` guard. On AI failure, the count is refunded.
-- **Circuit breaker**: `analyze/circuit-breaker.ts` wraps DeepSeek calls with a 5-failure / 60s-reset breaker to prevent cascading failures.
-- **PDF export flow**: Markdown → HTML template (A4, Source Han Sans CN, 2.5cm margins) → Puppeteer renders → PDF buffer returned.
-- **Files are never publicly accessible**: stored at `RESUME_STORAGE_PATH` (default `./data/resumes`), served only through authenticated API endpoints.
+- **Global response interceptor** (`ApiResponseInterceptor`): success → `{success: true, data}`, error → `{success: false, error: {code, message}}`. Controllers return raw data; interceptor wraps it.
+- **Auth flow**: `localStorage` JWT → `Authorization: Bearer <token>`. `AuthGuard` validates token, sets `req.userId`. Frontend `apiFetch()` auto-attaches token and handles 401 redirects.
+- **Async resume parsing**: upload creates DB record + BullMQ job → `parse.worker.ts` extracts text (mammoth/pdfjs-dist) → DeepSeek extracts structured JSON → updates `parseStatus`. Dashboard polls for status.
+- **Two-stage AI pipeline**: "分析大师" (`prompts/analyze-master.md`) → analysis result → "生成大师" (`prompts/generate-master.md`) → Markdown resume.
+- **Analysis idempotency**: `@@unique([resumeId, jobDescriptionId])` on `AnalysisRecord`. Re-analyzing same pair returns cached result.
+- **Free tier gating**: `freeAnalysisCount` (default 3) on `Resume`. Atomically decremented with `gt: 0` guard. Refunded on AI failure.
+- **Circuit breaker**: `analyze/circuit-breaker.ts` — 5 failures / 60s reset for DeepSeek calls.
+- **GeneratedResume flow**: Save dialog on analyze page → `POST /generated-resumes` → redirect to edit page → `PUT /generated-resumes/:id` re-saves with dedup check (`@@unique([userId, name])`). Dashboard shows "生成的简历" section.
+- **PDF export**: Markdown → HTML template (A4, Source Han Sans CN, 2.5cm margins) → Puppeteer renders → PDF buffer.
+- **Points system**: Deduct on analyze/generate. Users can recharge. Transactions logged in `PointTransaction`.
 
 ## Error Codes
 
-Defined in `packages/shared/types/api.ts` (`ErrorCode` enum), returned as `error.code` in API responses:
-`INVALID_PARAMS`, `UNAUTHORIZED`, `QUOTA_EXCEEDED`, `RESOURCE_NOT_FOUND`, `FILE_TYPE_UNSUPPORTED`, `FILE_TOO_LARGE`, `PARSE_FAILED`, `INTERNAL_ERROR`, `AI_SERVICE_UNAVAILABLE`
-
-## Environment Variables
-
-See `.env.example`:
-- `DATABASE_URL` — PostgreSQL connection string (default: `postgresql://resume:resume_dev@localhost:5432/resume_matcher`)
-- `REDIS_URL` — Redis connection string (default: `redis://localhost:6379`)
-- `DEEPSEEK_API_KEY` — DeepSeek API key
-- `DEEPSEEK_MODEL` — model name (default: `deepseek-chat`)
-- `DEEPSEEK_BASE_URL` — API base URL (default: `https://api.deepseek.com`)
-- `JWT_SECRET` — signing secret for JWT tokens
-- `RESUME_STORAGE_PATH` — path for uploaded files (default: `./data/resumes`)
-- `MAX_FILE_SIZE_MB` — file size limit (default: 5)
-- `PUPPETEER_EXECUTABLE_PATH` — path to Chromium binary for PDF rendering
+Defined in `packages/shared/types/api.ts` (`ErrorCode` enum):
+`INVALID_PARAMS`, `UNAUTHORIZED`, `QUOTA_EXCEEDED`, `RESOURCE_NOT_FOUND`, `FILE_TYPE_UNSUPPORTED`, `FILE_TOO_LARGE`, `PARSE_FAILED`, `INTERNAL_ERROR`, `AI_SERVICE_UNAVAILABLE`, `DUPLICATE_NAME`
 
 ## Design System
 
-Always read `DESIGN.md` before making any visual or UI decisions.
+Key tokens (see `DESIGN.md` for full spec):
+- **Accent**: `#B75C3A` (terracotta)
+- **Type**: Noto Serif SC (display), system font (UI), JetBrains Mono (code)
+- **Spacing**: 4px base, compact density
+- **Layout**: Left sidebar (200px) desktop, bottom tab bar mobile
+- **Motion**: Minimal-functional, respect `prefers-reduced-motion`
 
-Key design tokens:
-- **Accent**: `#B75C3A` (terracotta), hover: `#9A4E31`
-- **Type**: Noto Serif SC (display/score), PingFang SC (body/UI), JetBrains Mono (code)
-- **Spacing**: 4px base unit, compact density (information-dense)
-- **Layout**: persistent left sidebar (200px) + main content on desktop; bottom tab bar on mobile
-- **Motion**: minimal-functional only — no scroll-driven animations, no bouncy springs
+## Import Patterns
 
-## Skill routing
+- Frontend pages use relative imports for local components (`../../components/Button`)
+- Backend modules use relative imports (`../prisma/prisma.service`, `../auth/auth.guard`)
+- Shared types import from `@cvbuilder/shared` (both frontend and backend)
+- Backend controllers use `@Controller("resource-name")` with `@UseGuards(AuthGuard)` and `@UseInterceptors(ApiResponseInterceptor)`
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+## Module Pattern (Backend)
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+NestJS modules follow a consistent pattern:
+- `module.ts` — registers controller + service
+- `controller.ts` — `@Controller`, `@UseGuards(AuthGuard)`, `@UseInterceptors(ApiResponseInterceptor)`, injects service
+- `service.ts` — `@Injectable()`, injects `PrismaService`, throws `HttpException` with `ErrorCode`
+- Register module in `app.module.ts`
+- Ownership check: `record.userId !== userId` → 404 (`RESOURCE_NOT_FOUND`)

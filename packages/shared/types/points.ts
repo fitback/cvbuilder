@@ -36,3 +36,15 @@ export interface PendingRecharge {
   orderNo: string;
   createdAt: string;
 }
+
+export interface RechargeHistoryItem {
+  id: string;
+  userPhone: string;
+  amount: number;
+  points: number;
+  orderNo: string;
+  status: "approved" | "rejected";
+  adminNote?: string;
+  createdAt: string;
+  approvedAt?: string;
+}

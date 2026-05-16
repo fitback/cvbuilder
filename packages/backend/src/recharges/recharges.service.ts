@@ -80,6 +80,26 @@ export class RechargesService {
     }));
   }
 
+  async listHistory() {
+    const records = await this.prisma.rechargeRecord.findMany({
+      where: { status: { in: ["approved", "rejected"] } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { user: { select: { phone: true } } },
+    });
+    return records.map((r) => ({
+      id: r.id,
+      userPhone: r.user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2"),
+      amount: r.amount,
+      points: r.points,
+      orderNo: r.orderNo,
+      status: r.status,
+      adminNote: r.adminNote ?? undefined,
+      createdAt: r.createdAt.toISOString(),
+      approvedAt: r.approvedAt?.toISOString() ?? undefined,
+    }));
+  }
+
   async approve(id: string, adminId: string) {
     const record = await this.prisma.rechargeRecord.findUnique({ where: { id } });
     if (!record) {

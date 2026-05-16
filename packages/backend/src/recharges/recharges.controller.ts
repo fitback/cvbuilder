@@ -1,19 +1,15 @@
-import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors, HttpException } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { RechargesService } from "./recharges.service";
 import { AuthGuard } from "../auth/auth.guard";
+import { AdminGuard } from "../auth/admin.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
-import { PrismaService } from "../prisma/prisma.service";
-import { ErrorCode } from "@cvbuilder/shared";
 import { CreateRechargeDto, RejectRechargeDto } from "./recharges.dto";
 
 @Controller("recharges")
 @UseGuards(AuthGuard)
 @UseInterceptors(ApiResponseInterceptor)
 export class RechargesController {
-  constructor(
-    private readonly rechargesService: RechargesService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly rechargesService: RechargesService) {}
 
   @Post()
   async create(@Body() body: CreateRechargeDto, @Req() req: any) {
@@ -26,12 +22,15 @@ export class RechargesController {
   }
 
   @Get("pending")
-  async listPending(@Req() req: any) {
-    const user = await this.prisma.user.findUnique({ where: { id: req.userId } });
-    if (user?.role !== "admin") {
-      throw new HttpException({ code: ErrorCode.UNAUTHORIZED, message: "无权操作" }, 401);
-    }
+  @UseGuards(AdminGuard)
+  async listPending() {
     return this.rechargesService.listPending();
+  }
+
+  @Get("history")
+  @UseGuards(AdminGuard)
+  async listHistory(@Req() req: any) {
+    return this.rechargesService.listHistory();
   }
 
   @Post(":id/approve")

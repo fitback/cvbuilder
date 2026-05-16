@@ -66,17 +66,38 @@
 - **Approach:** minimal-functional — only transitions that aid comprehension
 - **Easing:** enter(ease-out) exit(ease-in) move(ease-in-out)
 - **Duration:** micro(50-100ms) short(150-250ms) medium(250-400ms)
-- **No:** scroll-driven animations, entrance choreography, bouncy springs
+- **Page transitions:** `slideUp` (300ms, ease-out) for page content; `fadeIn` (200ms, ease-out) for overlays/error states. Triggered per-route via `key={pathname}` on `<main>` wrapper to re-start animation on navigation.
+- **Card interactions:** `hover:-translate-y-[1px]`, `hover:shadow-sm`, `active:scale-[0.995]` (cards); `active:scale-[0.97]` (buttons). These provide spatial feedback without bouncy springs.
+- **Loading states:** Skeleton shimmer with staggered `animationDelay` (100ms increments) — no full-page spinners except for AI generation steps (which use a centered spinner + skeleton lines).
+- **Toast:** `toastIn` keyframe (8px upward slide + scale, 0→1 opacity, 250ms ease-out) for temporary notifications.
+- **Generating state:** Centered spinner + 3 skeleton lines (staggered 150ms delay) with animated widths `[70%, 50%, 60%]`.
+- **No:** scroll-driven animations, entrance choreography, bouncy springs.
+
+## Accessibility
+
+- **Focus States:** All interactive elements (buttons, nav items, inputs, links) use `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B75C3A]/30 focus-visible:ring-offset-1`. Global `:focus-visible` reset sets `outline: none` and applies a 2px accent ring.
+- **Reduced Motion:** `@media (prefers-reduced-motion: reduce)` globally zeroes `animation-duration`, `transition-duration`, and sets `scroll-behavior: auto` on all elements. All interactive feedback (hover/active transforms) is disabled in this mode.
+- **Touch targets:** 44×44px minimum for mobile nav items and buttons; gap ≥8px between adjacent touch targets.
+- **Color contrast:** All text/bg pairs meet WCAG AA (4.5:1). Design tokens are semantic (not raw hex) — accent, text-primary, text-secondary, etc.
+
+## Navigation
+
+- **Desktop sidebar:** Persistent 200px left sidebar. Active item uses `border-l-[3px] border-[#B75C3A]` with `pl-[9px]` (compensating for border). Inactive items use `border-l-[3px] border-transparent`. No background fill on active state — the border alone signals active.
+- **Mobile bottom nav:** Fixed bottom bar with 5 items max. Active item uses `border-t-2 border-[#B75C3A] pt-[4px]`. Inactive items use `border-t-2 border-transparent`.
+- **Login/Logout:** Placed at bottom of sidebar on desktop; inline in header on mobile. Active states follow the same border-based pattern.
 
 ## Interactive States (design tokens applied)
 
 | Component | Default | Hover | Active/Focus | Disabled |
 |-----------|---------|-------|--------------|----------|
-| Primary button | bg: accent, text: white | bg: accent-hover | ring: accent @ 15% opacity | opacity: 40% |
-| Secondary button | bg: surface-tertiary, text: text-primary, border: border | bg: border-light | ring: accent @ 15% | opacity: 40% |
-| Ghost button | bg: transparent, text: text-secondary | bg: surface-tertiary | ring: accent @ 15% | opacity: 40% |
-| Input | bg: surface, border: border | — | border: accent, ring: accent @ 15% | opacity: 40% |
-| Nav item | text: text-secondary | bg: surface-tertiary | text: accent, bg: surface-tertiary (active) | — |
+| Primary button | bg: accent, text: white | brightness-110 | scale-[0.97], ring: accent 30% | opacity: 40%, no scale |
+| Secondary button | bg: white, text: #2D2D2D, border: var(--color-border) | bg: #F5F4F2 | scale-[0.97], ring: accent 30% | opacity: 50% |
+| Ghost button | bg: transparent, text: #6B6B6B | bg: #F5F4F2 | scale-[0.97] | opacity: 50% |
+| Danger button | text: #C75B5B | bg: #FBEDED | scale-[0.97] | opacity: 50% |
+| Input | bg: white, border: var(--color-border) | — | border: accent, ring: accent 30% | opacity: 40% |
+| Nav item (sidebar) | text: var(--color-text-secondary), border: transparent 3px | bg: #F5F4F2 | text: accent, border: accent 3px | — |
+| Nav item (bottom) | text: var(--color-text-secondary), border: transparent 2px | bg: #F5F4F2 | text: accent, border: accent 2px | — |
+| Card/link | bg: white, border: var(--color-border-light) | translateY(-1px), shadow-sm, border: var(--color-border) | scale-[0.995] | — |
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -86,3 +107,8 @@
 | 2026-05-08 | Noto Serif SC for display/metrics | Signals editorial quality; resume as printed document, not web form |
 | 2026-05-08 | Minimal decoration, compact density | "Serious help, not a toy" — decoration undermines trust |
 | 2026-05-08 | PingFang SC over Inter/system-ui | Chinese-first product; system-ui is the "I gave up on typography" signal |
+| 2026-05-10 | Focus-visible rings on all interactive elements | WCAG AA 2.4.7 focus indicator required; global :focus-visible reset prevents native dotted outline |
+| 2026-05-10 | prefers-reduced-motion support | Accessibility — users with vestibular disorders must be able to disable all motion |
+| 2026-05-10 | Nav active border instead of bg fill | Border-only active state is cleaner when there are multiple card-type items on the page; avoids confusing "which is the active section" |
+| 2026-05-10 | Per-route page transition via key={pathname} | Prevents fade from re-triggering on unrelated re-renders while still animating on actual navigation |
+| 2026-05-10 | scale-[0.97] active state on buttons | Micro-feedback for press without the complexity of lift effects on all interactive elements |
