@@ -42,15 +42,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const allNavItems = userRole === "admin" ? [...navItems, adminNavItem] : navItems;
 
   useEffect(() => {
-    if (isLoggedIn()) {
+    if (loggedIn) {
       apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
         if (j.success) {
           setUserPhone(j.data.phone);
           setUserRole(j.data.role);
         }
       });
+    } else {
+      setUserPhone("");
+      setUserRole("");
     }
-  }, []);
+  }, [loggedIn]);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
