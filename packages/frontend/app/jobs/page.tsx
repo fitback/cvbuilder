@@ -14,7 +14,6 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [content, setContent] = useState("");
@@ -22,9 +21,8 @@ export default function JobsPage() {
   const { toast } = useToast();
 
   async function fetchJobs() {
-    if (!isLoggedIn()) { setShowAuth(true); setLoading(false); return; }
     try {
-      const res = await apiFetch(`${API_BASE}/jobs`);
+      const res = await apiFetch(`${API}/jobs`);
       const json = await res.json();
       setJobs(json.data ?? []);
       setError("");
@@ -194,7 +192,6 @@ export default function JobsPage() {
           ))}
         </div>
       )}
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); fetchJobs(); }} />}
     </div>
   );
 }

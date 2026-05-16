@@ -5,6 +5,7 @@ import { Button } from "./Button";
 import { User, X, Sparkles, AlertCircle, Check } from "./icons";
 import { setToken } from "../lib/auth";
 
+const API = "http://localhost:3001";
 
 export default function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: (phone: string) => void }) {
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -19,7 +20,7 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
     setLoading(true);
     try {
       const endpoint = tab === "login" ? "login" : "register";
-      const res = await fetch(`${API_BASE}/auth/${endpoint}`, {
+      const res = await fetch(`${API}/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, password }),

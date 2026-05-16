@@ -3,12 +3,11 @@ import { resolve } from "path";
 config({ path: resolve(__dirname, "../.env") });
 
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe, Logger } from "@nestjs/common";
 import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { logger: ["log", "error", "warn"] });
+  const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -18,6 +17,5 @@ async function bootstrap() {
     credentials: true,
   });
   await app.listen(3001);
-  Logger.log("Backend listening on http://localhost:3001", "Bootstrap");
 }
 bootstrap();

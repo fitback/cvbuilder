@@ -7,6 +7,7 @@ import { Check, X, AlertCircle, User as UserIcon } from "./icons";
 import { useToast } from "./Toast";
 import { apiFetch } from "../lib/auth";
 
+const API = "http://localhost:3001";
 
 export default function RechargeApproval() {
   const [items, setItems] = useState<PendingRecharge[]>([]);
@@ -15,23 +16,15 @@ export default function RechargeApproval() {
   const { toast } = useToast();
 
   async function fetchPending() {
-    setError(false);
     try {
-      const res = await apiFetch(`${API_BASE}/recharges/pending`);
+      const res = await apiFetch(`${API}/recharges/pending`);
       const json = await res.json();
       if (json.success) setItems(json.data ?? []);
-      if (!json.success && json.error?.code === "UNAUTHORIZED") {
-        // Not an admin, don't show anything
-        setItems([]);
-      }
-    } catch {
-      setError(true);
-    }
-    setLoading(false);
+    } catch {}
   }
 
   useEffect(() => {
-    fetchPending();
+    fetchPending().finally(() => setLoading(false));
   }, []);
 
   async function handleApprove(id: string) {
@@ -65,8 +58,7 @@ export default function RechargeApproval() {
   }
 
   if (loading) return null;
-
-  if (!error && items.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <div className="mb-6 p-4 bg-white border border-[#B75C3A]/20 rounded-xl animate-[slideUp_300ms_ease-out]">
@@ -79,12 +71,6 @@ export default function RechargeApproval() {
           {items.length} 笔
         </span>
       </div>
-      {error && (
-        <p className="text-xs text-error">加载失败，请刷新页面重试</p>
-      )}
-      {!error && items.length === 0 && (
-        <p className="text-xs text-text-muted">暂无待审批的充值</p>
-      )}
       <div className="space-y-2">
         {items.map((item) => (
           <div

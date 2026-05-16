@@ -6,6 +6,7 @@ import { Button } from "../../../components/Button";
 import { Coins, ChevronLeft, Check, X, Clock } from "../../../components/icons";
 import { apiFetch } from "../../../lib/auth";
 
+const API = "http://localhost:3001";
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Check; className: string }> = {
   pending: { label: "待审核", icon: Clock, className: "bg-[#C7953A]/10 text-[#C7953A]" },
@@ -18,7 +19,7 @@ export default function RechargeHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch(`${API_BASE}/recharges`)
+    apiFetch(`${API}/recharges`)
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setItems(j.data ?? []);

@@ -28,20 +28,7 @@ export default function UploadPage() {
     toast(msg, "error");
   }, [toast]);
 
-  useEffect(() => {
-    if (!isLoggedIn()) setShowAuth(true);
-  }, []);
-
-  function requireAuth(): boolean {
-    if (!isLoggedIn()) {
-      setShowAuth(true);
-      return false;
-    }
-    return true;
-  }
-
   async function uploadFile(file: File) {
-    if (!requireAuth()) return;
     setError("");
     setFileName(file.name);
 
@@ -59,7 +46,7 @@ export default function UploadPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await apiFetch(`${API_BASE}/resumes/upload`, { method: "POST", body: form });
+      const res = await apiFetch(`${API}/resumes/upload`, { method: "POST", body: form });
       const json = await res.json();
       if (!json.success) {
         setStep("idle");
@@ -77,10 +64,6 @@ export default function UploadPage() {
       setStep("idle");
       triggerError("上传失败，请重试");
     }
-  }
-
-  if (showAuth) {
-    return <AuthModal onClose={() => setShowAuth(false)} onLogin={() => setShowAuth(false)} />;
   }
 
   return (
@@ -183,7 +166,6 @@ export default function UploadPage() {
           <span className="text-sm text-[#C75B5B]">{error}</span>
         </div>
       )}
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={() => setShowAuth(false)} />}
     </div>
   );
 }

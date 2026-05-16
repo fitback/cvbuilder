@@ -8,16 +8,7 @@ import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../lib/auth";
 import RechargeApproval from "../../components/RechargeApproval";
 
-
-interface SavedResumeItem {
-  analysisRecordId: string;
-  resumeId: string;
-  resumeFileName: string;
-  jdTitle: string;
-  jdCompany?: string;
-  matchScore: number;
-  savedAt: string;
-}
+const API = "http://localhost:3001";
 
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
@@ -66,56 +57,7 @@ export default function DashboardPage() {
     }
   };
 
-  async function fetchJobs() {
-    try {
-      const res = await apiFetch(`${API_BASE}/jobs`);
-      const json = await res.json();
-      if (json.success) setJobs(json.data ?? []);
-    } catch {
-      setErrors((e) => ({ ...e, jobs: "加载失败" }));
-    } finally {
-      setLoading((l) => ({ ...l, jobs: false }));
-    }
-  }
-
-  async function fetchSavedResumes() {
-    try {
-      const res = await apiFetch(`${API_BASE}/analyze/saved`);
-      const json = await res.json();
-      if (json.success) setSavedResumes(json.data ?? []);
-    } catch {
-      setErrors((e) => ({ ...e, saved: "加载失败" }));
-    } finally {
-      setLoading((l) => ({ ...l, saved: false }));
-    }
-  }
-
-  async function deleteResume(id: string) {
-    await apiFetch(`${API_BASE}/resumes/${id}`, { method: "DELETE" });
-    await fetchResumes();
-  }
-
-  async function deleteJob(id: string) {
-    await apiFetch(`${API_BASE}/jobs/${id}`, { method: "DELETE" });
-    await fetchJobs();
-  }
-
-  async function viewJdDetail(jdId: string) {
-    try {
-      const res = await apiFetch(`${API_BASE}/jobs/${jdId}`);
-      const json = await res.json();
-      if (json.success) setViewingJd(json.data);
-    } catch {}
-  }
-
-  const allEmpty = resumes.length === 0 && jobs.length === 0 && savedResumes.length === 0;
-  const allLoaded = !loading.resumes && !loading.jobs && !loading.saved;
-
-  if (showAuth) {
-    return <AuthModal onClose={() => setShowAuth(false)} onLogin={() => { setShowAuth(false); window.location.reload(); }} />;
-  }
-
-  if (allEmpty && allLoaded) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-[fadeIn_200ms_ease-out]">
         <AlertCircle size={48} className="text-[#C75B5B] mb-4 opacity-50" />
@@ -198,7 +140,7 @@ export default function DashboardPage() {
           <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">还没有上传简历</h3>
           <p className="text-sm text-[#6B6B6B] mb-6">上传你的第一份简历，AI 帮你匹配理想岗位</p>
           <a href="/upload">
-            <Button variant="primary" icon={<Upload size={16} />}>
+            <Button variant="primary" icon={<Upload size={14} />}>
               上传简历
             </Button>
           </a>
@@ -251,9 +193,7 @@ export default function DashboardPage() {
                 </Button>
               </div>
             </div>
-            {viewingJd.company && <p className="text-sm text-text-secondary mb-3">{viewingJd.company}</p>}
-            <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed border-t border-border-light pt-3">{viewingJd.content}</div>
-          </div>
+          ))}
         </div>
       )}
 
@@ -309,64 +249,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
-
-/* ---- Sub-components ---- */
-
-function Section({ title, count, href, actionLabel, children }: {
-  title: string; count: number; href?: string; actionLabel?: string; children: React.ReactNode;
-}) {
-  return (
-    <div className="mb-6">
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <span className="text-xs px-2 py-0.5 bg-surface-tertiary text-text-muted rounded-full">{count}</span>
-        </div>
-        {href && actionLabel && (
-          <a href={href} className="text-xs text-accent hover:underline">{actionLabel}</a>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ListItem({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex justify-between items-center px-3 py-2 rounded hover:bg-surface-secondary transition-colors group">
-      {children}
-    </div>
-  );
-}
-
-function Actions({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="hidden group-hover:flex items-center gap-1 shrink-0 md:flex">
-      {children}
-    </div>
-  );
-}
-
-function Skeleton({ count }: { count: number }) {
-  return (
-    <div className="space-y-1">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-9 bg-surface-tertiary rounded animate-pulse" />
-      ))}
-    </div>
-  );
-}
-
-function ErrorBlock({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="text-sm text-error py-2 flex items-center gap-3">
-      <span>{message}</span>
-      <button onClick={onRetry} className="text-xs underline">重试</button>
-    </div>
-  );
-}
-
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-text-muted py-2">{children}</p>;
 }

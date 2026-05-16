@@ -6,6 +6,7 @@ import { Coins, ChevronLeft, Check, AlertCircle, Sparkles } from "../../componen
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../lib/auth";
 
+const API = "http://localhost:3001";
 
 export default function RechargePage() {
   const [amount, setAmount] = useState("");
@@ -28,7 +29,7 @@ export default function RechargePage() {
     }
     setLoading(true);
     try {
-      const res = await apiFetch(`${API_BASE}/recharges`, {
+      const res = await apiFetch(`${API}/recharges`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: parseInt(amount), orderNo: orderNo.trim() }),

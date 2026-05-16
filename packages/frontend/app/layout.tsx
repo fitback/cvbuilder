@@ -10,6 +10,7 @@ import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut } from "../comp
 import { isLoggedIn, clearToken, apiFetch } from "../lib/auth";
 import "./globals.css";
 
+const API = "http://localhost:3001";
 
 const navItems = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (isLoggedIn()) {
-      apiFetch(`${API_BASE}/auth/me`).then((r) => r.json()).then((j) => {
+      apiFetch(`${API}/auth/me`).then((r) => r.json()).then((j) => {
         if (j.success) setUserPhone(j.data.phone);
       });
     }

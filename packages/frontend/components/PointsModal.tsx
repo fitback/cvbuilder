@@ -5,6 +5,7 @@ import { PointTransactionItem } from "@cvbuilder/shared";
 import { X, Spinner, Coins, ArrowUpRight, ArrowDownRight, RotateCcw } from "./icons";
 import { apiFetch } from "../lib/auth";
 
+const API = "http://localhost:3001";
 
 const TYPE_LABELS: Record<string, string> = {
   credit: "充值",
@@ -32,7 +33,7 @@ export default function PointsModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch(`${API_BASE}/points/transactions`)
+    apiFetch(`${API}/points/transactions`)
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setItems(j.data.items ?? []);

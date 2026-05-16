@@ -13,14 +13,13 @@ import {
 import { useToast } from "../../../components/Toast";
 import { apiFetch } from "../../../lib/auth";
 import InsufficientPoints from "../../../components/InsufficientPoints";
-import OriginalResumeCard from "../../../components/OriginalResumeCard";
 
+const API = "http://localhost:3001";
 
 type Step = "idle" | "analyzing" | "generating" | "done";
 
 export default function AnalyzePage({ params }: { params: Promise<{ resumeId: string }> }) {
   const { resumeId } = use(params);
-  const { record: initialRecord } = use(searchParams);
   const [resume, setResume] = useState<ResumeDetail | null>(null);
   const [jobs, setJobs] = useState<JobDescriptionItem[]>([]);
   const [selectedJd, setSelectedJd] = useState("");
@@ -49,41 +48,29 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
   }, [jobs, selectedJd]);
 
   useEffect(() => {
-    apiFetch(`${API_BASE}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
-    apiFetch(`${API_BASE}/jobs`).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
+    apiFetch(`${API}/resumes/${resumeId}`).then((r) => r.json()).then((j) => setResume(j.data));
+    apiFetch(`${API}/jobs`).then((r) => r.json()).then((j) => setJobs(j.data ?? []));
     fetchHistory();
   }, [resumeId]);
 
   async function fetchHistory() {
-    const res = await apiFetch(`${API_BASE}/analyze?resumeId=${resumeId}`);
+    const res = await apiFetch(`${API}/analyze?resumeId=${resumeId}`);
     const json = await res.json();
     const items: AnalysisHistoryItem[] = json.data ?? [];
     setHistory(items);
-    if (initialRecord && !viewingHistoryId) {
-      loadDetail(initialRecord);
-      setGeneratedMarkdown(""); // trigger comparison view open
-    } else if (items.length > 0 && !viewingHistoryId) {
+    if (items.length > 0 && !viewingHistoryId) {
       loadDetail(items[0].id);
     }
   }
 
   async function loadDetail(recordId: string) {
     setViewingHistoryId(recordId);
-    const res = await apiFetch(`${API_BASE}/analyze/${recordId}`);
+    const res = await apiFetch(`${API}/analyze/${recordId}`);
     const json = await res.json();
     if (json.success) {
       setResult(json.data);
       setStep("done");
     }
-    // Also try to load saved markdown
-    try {
-      const genRes = await apiFetch(`${API_BASE}/generate/${recordId}`);
-      const genJson = await genRes.json();
-      if (genJson.success && genJson.data.markdown) {
-        setGeneratedMarkdown(genJson.data.markdown);
-        setSavedMarkdown(genJson.data.markdown);
-      }
-    } catch {}
   }
 
   async function startAnalyze() {
@@ -92,7 +79,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     setStep("analyzing");
 
     try {
-      const res = await apiFetch(`${API_BASE}/analyze`, {
+      const res = await apiFetch(`${API}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -127,7 +114,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     setGeneratedMarkdown("");
     setError("");
     try {
-      const res = await apiFetch(`${API_BASE}/generate`, {
+      const res = await apiFetch(`${API}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -161,11 +148,10 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
 
   async function exportPdf() {
     try {
-      const content = savedMarkdown || generatedMarkdown;
-      const res = await apiFetch(`${API_BASE}/export/pdf`, {
+      const res = await apiFetch(`${API}/export/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown: content }),
+        body: JSON.stringify({ markdown: generatedMarkdown }),
       });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
@@ -448,13 +434,6 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
                   <div className="text-sm font-medium text-[#2D2D2D]">{j.title}</div>
                   {j.company && <div className="text-xs text-[#9E9E9E]">{j.company}</div>}
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); viewJdDetail(j.id); }}
-                  className="text-xs text-accent hover:underline shrink-0"
-                >
-                  查看详情
-                </button>
               </label>
             ))}
           </div>
