@@ -83,7 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   );
                 })}
               </nav>
-              <PointsBalance onOpenModal={() => setShowPoints(true)} />
+              {userRole !== "admin" && <PointsBalance onOpenModal={() => setShowPoints(true)} />}
               <div className="pt-4 border-t border-[#EBEBEB] mt-4">
                 {userPhone ? (
                   <div className="flex items-center justify-between px-1">

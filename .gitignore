@@ -13,3 +13,4 @@ dist/
 *.pdf
 *.docx
 .env.local
+*.rtf
