@@ -10,13 +10,14 @@ import { GenerateModule } from "./generate/generate.module";
 import { ExportModule } from "./export/export.module";
 import { PointsModule } from "./points/points.module";
 import { RechargesModule } from "./recharges/recharges.module";
+import { GeneratedResumesModule } from "./generated-resumes/generated-resumes.module";
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }]),
     PrismaModule, AuthModule, ResumesModule, JobsModule,
     AnalyzeModule, GenerateModule, ExportModule,
-    PointsModule, RechargesModule,
+    PointsModule, RechargesModule, GeneratedResumesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -4,3 +4,4 @@ export * from "./types/job";
 export * from "./types/analysis";
 export * from "./types/generate";
 export * from "./types/points";
+export * from "./types/generated-resume";

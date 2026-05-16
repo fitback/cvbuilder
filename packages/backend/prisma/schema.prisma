@@ -20,8 +20,9 @@ model User {
   jobDescriptions  JobDescription[]
   analysisRecords  AnalysisRecord[]
   rechargeRecords  RechargeRecord[]
-  pointTransactions PointTransaction[]
-  adminRecharges   RechargeRecord[]     @relation("AdminRecharges")
+  pointTransactions  PointTransaction[]
+  generatedResumes   GeneratedResume[]
+  adminRecharges     RechargeRecord[]     @relation("AdminRecharges")
 }
 
 model Resume {
@@ -105,5 +106,20 @@ model PointTransaction {
   referenceId String?
   createdAt   DateTime @default(now())
 
+  @@index([userId])
+}
+
+model GeneratedResume {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  content   String
+  resumeId  String?
+  analysisRecordId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
   @@index([userId])
 }

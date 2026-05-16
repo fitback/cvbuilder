@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { PendingRecharge } from "@cvbuilder/shared";
-import { apiFetch, API_BASE } from "../lib/auth";
+import { Button } from "./Button";
+import { Check, X, AlertCircle, User as UserIcon } from "./icons";
+import { useToast } from "./Toast";
+import { apiFetch } from "../lib/auth";
 
 
 export default function RechargeApproval() {
   const [items, setItems] = useState<PendingRecharge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [approving, setApproving] = useState<string | null>(null);
+  const { toast } = useToast();
 
   async function fetchPending() {
     setError(false);
@@ -31,18 +35,33 @@ export default function RechargeApproval() {
   }, []);
 
   async function handleApprove(id: string) {
-    await apiFetch(`${API_BASE}/recharges/${id}/approve`, { method: "POST" });
-    await fetchPending();
+    setApproving(id);
+    try {
+      await apiFetch(`${API}/recharges/${id}/approve`, { method: "POST" });
+      toast("已通过审批", "success");
+      await fetchPending();
+    } catch {
+      toast("审批失败", "error");
+    } finally {
+      setApproving(null);
+    }
   }
 
   async function handleReject(id: string) {
-    const note = prompt("驳回原因（可选）：");
-    await apiFetch(`${API_BASE}/recharges/${id}/reject`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note: note || undefined }),
-    });
-    await fetchPending();
+    setApproving(id);
+    try {
+      await apiFetch(`${API}/recharges/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      toast("已驳回", "success");
+      await fetchPending();
+    } catch {
+      toast("驳回失败", "error");
+    } finally {
+      setApproving(null);
+    }
   }
 
   if (loading) return null;
@@ -50,11 +69,14 @@ export default function RechargeApproval() {
   if (!error && items.length === 0) return null;
 
   return (
-    <div className="mb-6 p-4 bg-surface border border-accent/20 rounded-md">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="text-sm font-medium">充值审批</h3>
-        <span className="text-xs px-2 py-0.5 bg-accent text-white rounded-full">
-          {items.length} 笔待处理
+    <div className="mb-6 p-4 bg-white border border-[#B75C3A]/20 rounded-xl animate-[slideUp_300ms_ease-out]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <AlertCircle size={16} className="text-[#B75C3A]" />
+          <h3 className="text-sm font-medium text-[#1A1A1A]">待审批充值</h3>
+        </div>
+        <span className="text-xs px-2 py-0.5 bg-[#B75C3A] text-white rounded-full">
+          {items.length} 笔
         </span>
       </div>
       {error && (
@@ -65,29 +87,41 @@ export default function RechargeApproval() {
       )}
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="flex justify-between items-center py-2 border-b border-border-light last:border-0">
-            <div>
-              <div className="text-sm">
-                <span className="text-text-muted text-xs">{item.userPhone}</span>
-                {" · "}
-                {item.amount} 元 → {item.points} 积分
+          <div
+            key={item.id}
+            className="flex items-center justify-between py-2.5 px-3 rounded-lg border border-[#EBEBEB]
+                       hover:bg-[#F5F4F2] transition-colors duration-150"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-sm">
+                <UserIcon size={14} className="text-[#9E9E9E] shrink-0" />
+                <span className="text-[#9E9E9E] text-xs">{item.userPhone}</span>
+                <span className="text-[#2D2D2D]">
+                  {item.amount} 元 → {item.points} 积分
+                </span>
               </div>
-              <div className="text-xs text-text-muted font-mono">{item.orderNo}</div>
-              <div className="text-xs text-text-muted">{new Date(item.createdAt).toLocaleString("zh-CN")}</div>
+              <div className="text-xs text-[#9E9E9E] font-mono mt-0.5">{item.orderNo}</div>
+              <div className="text-xs text-[#9E9E9E]">{new Date(item.createdAt).toLocaleString("zh-CN")}</div>
             </div>
-            <div className="flex gap-2">
-              <button
+            <div className="flex gap-1.5 shrink-0">
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Check size={14} />}
+                loading={approving === item.id}
                 onClick={() => handleApprove(item.id)}
-                className="px-3 py-1 text-xs text-white bg-accent rounded hover:bg-accent-hover"
               >
                 通过
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<X size={14} />}
                 onClick={() => handleReject(item.id)}
-                className="px-3 py-1 text-xs text-text-muted border border-border rounded hover:text-error"
+                className="hover:text-[#C75B5B]"
               >
                 驳回
-              </button>
+              </Button>
             </div>
           </div>
         ))}

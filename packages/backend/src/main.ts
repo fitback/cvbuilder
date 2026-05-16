@@ -10,20 +10,11 @@ import cookieParser from "cookie-parser";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ["log", "error", "warn"] });
   app.use(cookieParser());
-
-  // Request logging
-  app.use((req: any, _res: any, next: any) => {
-    const start = Date.now();
-    _res.on("finish", () => {
-      const ms = Date.now() - start;
-      Logger.log(`${req.method} ${req.originalUrl} ${_res.statusCode} ${ms}ms`, "Request");
-    });
-    next();
-  });
-
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({
-    origin: ["http://localhost:3000", /^https:\/\/.*\.ngrok-free\.(app|dev)$/],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || origin.startsWith("http://localhost")) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   });
   await app.listen(3001);
