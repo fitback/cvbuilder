@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import AuthModal from "../components/AuthModal";
 import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
@@ -16,10 +16,21 @@ const adminNavItem = { href: "/admin", label: "管理", icon: ShieldAlert };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
   const [userPhone, setUserPhone] = useState("");
   const [userRole, setUserRole] = useState("");
   const [showPoints, setShowPoints] = useState(false);
+
+  const isPublicPage = pathname === "/" || pathname === "/privacy";
+  const loggedIn = isLoggedIn();
+
+  // Route guard: redirect to login page if not authenticated
+  useEffect(() => {
+    if (!loggedIn && !isPublicPage) {
+      router.replace("/");
+    }
+  }, [loggedIn, isPublicPage, router]);
 
   const navItems = [
     { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -89,7 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs text-[#6B6B6B] truncate max-w-[120px]">{userPhone}</span>
                     <button
-                      onClick={() => { clearToken(); setUserPhone(""); }}
+                      onClick={() => { clearToken(); setUserPhone(""); setUserRole(""); router.push("/"); }}
                       className="flex items-center gap-1 text-xs text-[#9E9E9E] hover:text-[#C75B5B] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C75B5B]/30 focus-visible:rounded"
                     >
                       <LogOut size={14} />
@@ -135,7 +146,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             })}
             {userPhone ? (
               <button
-                onClick={() => { clearToken(); setUserPhone(""); }}
+                onClick={() => { clearToken(); setUserPhone(""); setUserRole(""); router.push("/"); }}
                 className="flex flex-col items-center gap-0.5 px-3 pt-[4px] pb-1.5 min-w-[56px] text-xs text-[#9E9E9E] hover:text-[#C75B5B] border-t-2 border-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C75B5B]/30 focus-visible:ring-inset"
               >
                 <LogOut size={20} />
