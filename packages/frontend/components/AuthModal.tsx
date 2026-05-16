@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "./Button";
+import { User, X, Sparkles, AlertCircle, Check } from "./icons";
 import { setToken } from "../lib/auth";
 
 const API = "http://localhost:3001";
@@ -43,23 +45,49 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-surface rounded-lg p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl animate-[slideUp_200ms_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <User size={20} className="text-[#B75C3A]" />
+            <h3 className="text-lg font-semibold text-[#1A1A1A]">{tab === "login" ? "登录" : "注册"}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[#F5F4F2] active:scale-[0.95] transition-all duration-150"
+            aria-label="关闭"
+          >
+            <X size={18} className="text-[#9E9E9E]" />
+          </button>
+        </div>
+
         {giftNotice && (
-          <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded">
-            {giftNotice}
+          <div className="mb-4 flex items-center gap-2 p-3 bg-[#5B8C5A]/5 border border-[#5B8C5A]/20 rounded-lg">
+            <Sparkles size={16} className="shrink-0 text-[#5B8C5A]" />
+            <span className="text-sm text-[#5B8C5A]">{giftNotice}</span>
           </div>
         )}
-        <div className="flex mb-6">
+
+        <div className="flex mb-6 bg-[#F5F4F2] rounded-lg p-1">
           <button
-            onClick={() => setTab("login")}
-            className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${tab === "login" ? "border-accent text-accent" : "border-border-light text-text-muted"}`}
+            onClick={() => { setTab("login"); setError(""); }}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-150 ${
+              tab === "login" ? "bg-white text-[#B75C3A] shadow-sm" : "text-[#9E9E9E] hover:text-[#6B6B6B]"
+            }`}
           >
             登录
           </button>
           <button
-            onClick={() => setTab("register")}
-            className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${tab === "register" ? "border-accent text-accent" : "border-border-light text-text-muted"}`}
+            onClick={() => { setTab("register"); setError(""); }}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-150 ${
+              tab === "register" ? "bg-white text-[#B75C3A] shadow-sm" : "text-[#9E9E9E] hover:text-[#6B6B6B]"
+            }`}
           >
             注册
           </button>
@@ -67,34 +95,48 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">手机号</label>
+            <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">手机号</label>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="输入手机号"
-              className="w-full px-3 py-2 border border-border rounded text-sm focus:border-accent focus:ring-2 focus:ring-accent/15 outline-none"
+              className="w-full px-3 py-2.5 border border-[#D4D4D4] rounded-lg text-sm focus:border-[#B75C3A] focus:ring-2 focus:ring-[#B75C3A]/15 outline-none transition-all duration-150"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">密码</label>
+            <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">密码</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="至少6位"
-              className="w-full px-3 py-2 border border-border rounded text-sm focus:border-accent focus:ring-2 focus:ring-accent/15 outline-none"
+              placeholder="至少 6 位"
+              className="w-full px-3 py-2.5 border border-[#D4D4D4] rounded-lg text-sm focus:border-[#B75C3A] focus:ring-2 focus:ring-[#B75C3A]/15 outline-none transition-all duration-150"
             />
           </div>
 
-          {error && <div className="text-sm text-error">{error}</div>}
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+              <AlertCircle size={16} className="shrink-0 text-[#C75B5B]" />
+              <span className="text-sm text-[#C75B5B]">{error}</span>
+            </div>
+          )}
 
-          <button
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            loading={loading}
+            disabled={!phone || !password}
             onClick={submit}
-            disabled={loading || !phone || !password}
-            className="w-full py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors"
           >
-            {loading ? "请稍候..." : tab === "login" ? "登录" : "注册"}
-          </button>
+            {tab === "login" ? "登录" : "注册"}
+          </Button>
+
+          {tab === "register" && (
+            <p className="text-xs text-[#9E9E9E] text-center">
+              注册即赠送 <strong className="text-[#B75C3A]">30</strong> 积分
+            </p>
+          )}
         </div>
       </div>
     </div>

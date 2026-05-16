@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ResumeItem } from "@cvbuilder/shared";
+import { ResumeItem, GeneratedResumeItem } from "@cvbuilder/shared";
+import { Button } from "../../components/Button";
+import { FileText, Upload, Trash2, ChevronRight, AlertCircle, RefreshCw, Sparkles } from "../../components/icons";
+import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../lib/auth";
 import RechargeApproval from "../../components/RechargeApproval";
 
@@ -9,102 +12,241 @@ const API = "http://localhost:3001";
 
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
+  const [generatedResumes, setGeneratedResumes] = useState<GeneratedResumeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    apiFetch(`${API}/resumes`)
-      .then((r) => r.json())
-      .then((j) => setResumes(j.data ?? []))
-      .catch(() => setError("加载失败，请刷新重试"))
-      .finally(() => setLoading(false));
-  }, []);
+  const fetchResumes = async () => {
+    try {
+      const [res, genRes] = await Promise.all([
+        apiFetch(`${API}/resumes`),
+        apiFetch(`${API}/generated-resumes`),
+      ]);
+      const json = await res.json();
+      const genJson = await genRes.json();
+      setResumes(json.data ?? []);
+      setGeneratedResumes(genJson.data ?? []);
+    } catch {
+      setError("加载失败，请刷新重试");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchResumes(); }, []);
 
   useEffect(() => {
     const hasParsing = resumes.some((r) => r.parseStatus === "parsing");
     if (!hasParsing) return;
-    const timer = setInterval(() => refreshResumes(), 3000);
+    const timer = setInterval(() => fetchResumes(), 3000);
     return () => clearInterval(timer);
   }, [resumes]);
 
-  async function refreshResumes() {
-    const res = await apiFetch(`${API}/resumes`);
-    const json = await res.json();
-    setResumes(json.data ?? []);
-  }
+  const handleDelete = async (id: string, name: string) => {
+    setDeleting(id);
+    try {
+      await apiFetch(`${API}/resumes/${id}`, { method: "DELETE" });
+      toast(`已删除 "${name}"`, "success");
+      await fetchResumes();
+    } catch {
+      toast("删除失败，请重试", "error");
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   if (error) {
     return (
-      <div className="text-center py-16">
-        <div className="text-5xl mb-4 opacity-20">⚠️</div>
-        <h3 className="text-lg font-semibold mb-2">加载失败</h3>
-        <p className="text-sm text-text-secondary mb-6">{error}</p>
-        <button onClick={() => window.location.reload()} className="px-5 py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover transition-colors">
+      <div className="flex flex-col items-center justify-center py-20 animate-[fadeIn_200ms_ease-out]">
+        <AlertCircle size={48} className="text-[#C75B5B] mb-4 opacity-50" />
+        <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">加载失败</h3>
+        <p className="text-sm text-[#6B6B6B] mb-6">{error}</p>
+        <Button variant="secondary" icon={<RefreshCw size={16} />} onClick={() => window.location.reload()}>
           重试
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 bg-surface-tertiary rounded-md animate-pulse" />
-        ))}
+      <div className="animate-[fadeIn_200ms_ease-out]">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <div className="h-7 w-24 bg-[#F5F4F2] rounded animate-pulse" />
+            <div className="h-4 w-16 bg-[#F5F4F2] rounded mt-2 animate-pulse" />
+          </div>
+          <div className="h-10 w-28 bg-[#F5F4F2] rounded-lg animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-[#F5F4F2] rounded-lg animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+          ))}
+        </div>
       </div>
     );
   }
 
+  const getStatusTag = (status: string, count: number) => {
+    if (status === "parsed") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#5B8C5A]/10 text-[#5B8C5A] text-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#5B8C5A]" />
+          解析完成
+          {count > 0 && <span className="opacity-60">· 已分析 {count} 次</span>}
+        </span>
+      );
+    }
+    if (status === "parsing") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#C7953A]/10 text-[#C7953A] text-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#C7953A] animate-pulse" />
+          解析中...
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#C75B5B]/10 text-[#C75B5B] text-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#C75B5B]" />
+        解析失败
+      </span>
+    );
+  };
+
   return (
-    <div>
+    <div className="animate-[slideUp_300ms_ease-out]">
       <RechargeApproval />
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-xl font-semibold">我的简历</h2>
-          <p className="text-sm text-text-secondary mt-1">{resumes.length} 份简历</p>
+          <h2 className="text-xl font-semibold text-[#1A1A1A]">我的简历</h2>
+          <p className="text-sm text-[#6B6B6B] mt-1">
+            共 {resumes.length} 份简历
+            {resumes.filter((r) => r.parseStatus === "parsed").length > 0 &&
+              ` · ${resumes.filter((r) => r.parseStatus === "parsed").length} 份可分析`}
+          </p>
         </div>
-        <a href="/upload" className="inline-block px-5 py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover transition-colors">
-          上传新简历
+        <a href="/upload">
+          <Button variant="primary" icon={<Upload size={16} />}>
+            上传新简历
+          </Button>
         </a>
       </div>
 
       {resumes.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4 opacity-20">📄</div>
-          <h3 className="text-lg font-semibold mb-2">还没有上传简历</h3>
-          <p className="text-sm text-text-secondary mb-6">上传你的第一份简历，AI 帮你匹配理想岗位</p>
-          <a href="/upload" className="inline-block px-5 py-2.5 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover transition-colors">
-            上传简历
+        <div className="flex flex-col items-center justify-center py-20">
+          <FileText size={56} className="text-[#D4D4D4] mb-4" />
+          <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">还没有上传简历</h3>
+          <p className="text-sm text-[#6B6B6B] mb-6">上传你的第一份简历，AI 帮你匹配理想岗位</p>
+          <a href="/upload">
+            <Button variant="primary" icon={<Upload size={16} />}>
+              上传简历
+            </Button>
           </a>
         </div>
       ) : (
         <div className="space-y-2">
           {resumes.map((r) => (
-            <div key={r.id} className="flex justify-between items-center p-4 bg-surface border border-border-light rounded-md">
-              <div>
-                <div className="text-sm font-medium">{r.fileNameOriginal}</div>
-                <div className="text-xs text-text-muted mt-1">
-                  上传于 {new Date(r.createdAt).toLocaleDateString("zh-CN")} · {r.parseStatus === "parsed" ? "解析完成" : r.parseStatus === "parsing" ? "解析中..." : "解析失败"}{r.parseStatus === "parsed" && r.analysisCount > 0 && ` · 已分析 ${r.analysisCount} 次`}
+            <div
+              key={r.id}
+              className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg
+                         transition-all duration-200 ease-out
+                         hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px]
+                         active:scale-[0.995]"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-[#F5F4F2] flex items-center justify-center
+                            group-hover:bg-[#EBEBEB] transition-colors duration-200">
+                  <FileText size={18} className="text-[#6B6B6B]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-[#2D2D2D] truncate max-w-[300px] md:max-w-[400px]">
+                    {r.fileNameOriginal}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs text-[#9E9E9E]">
+                      {new Date(r.createdAt).toLocaleDateString("zh-CN")}
+                    </span>
+                    {getStatusTag(r.parseStatus, (r as any).analysisCount ?? 0)}
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-1 shrink-0">
                 {r.parseStatus === "parsed" && (
-                  <a href={`/analyze/${r.id}`} className="px-3 py-1.5 border border-border rounded text-xs text-text-secondary hover:bg-surface-tertiary">
-                    分析
+                  <a href={`/analyze/${r.id}`}>
+                    <Button variant="secondary" size="sm" icon={<Sparkles size={14} />}>
+                      分析
+                    </Button>
                   </a>
                 )}
-                <button onClick={async () => {
-                  await apiFetch(`${API}/resumes/${r.id}`, { method: "DELETE" });
-                  await refreshResumes();
-                }} className="px-3 py-1.5 text-xs text-text-muted hover:text-error">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  loading={deleting === r.id}
+                  onClick={() => handleDelete(r.id, r.fileNameOriginal ?? "未命名")}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  aria-label={`删除 ${r.fileNameOriginal}`}
+                >
                   删除
-                </button>
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Generated resumes */}
+      <div className="pt-8">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-[#1A1A1A]">生成的简历</h3>
+            <p className="text-sm text-[#6B6B6B] mt-0.5">
+              共 {generatedResumes.length} 份
+            </p>
+          </div>
+        </div>
+
+        {generatedResumes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#D4D4D4] rounded-xl">
+            <FileText size={48} className="text-[#D4D4D4] mb-3" />
+            <h3 className="text-base font-medium text-[#1A1A1A] mb-1">还没有生成的简历</h3>
+            <p className="text-sm text-[#6B6B6B] mb-4">完成分析后，使用 AI 生成优化简历</p>
+            <a href="/upload">
+              <Button variant="secondary" size="sm" icon={<Upload size={14} />}>
+                上传简历开始
+              </Button>
+            </a>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {generatedResumes.map((r) => (
+              <a
+                key={r.id}
+                href={`/generated/${r.id}`}
+                className="block p-4 bg-white border border-[#EBEBEB] rounded-lg
+                           transition-all duration-200 ease-out
+                           hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px]
+                           active:scale-[0.995]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-[#2D2D2D] truncate">{r.name}</div>
+                    <div className="text-xs text-[#9E9E9E] mt-1">
+                      {new Date(r.createdAt).toLocaleDateString("zh-CN")}
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="shrink-0 text-[#D4D4D4] mt-0.5" />
+                </div>
+                {r.snippet && (
+                  <p className="text-xs text-[#6B6B6B] mt-2 line-clamp-2 leading-relaxed">{r.snippet}</p>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
