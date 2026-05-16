@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Button } from "../components/Button";
 import AuthModal from "../components/AuthModal";
 import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [userPhone, setUserPhone] = useState("");
   const [userRole, setUserRole] = useState("");
   const [showPoints, setShowPoints] = useState(false);
@@ -67,6 +69,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               if (j.success) setUserPhone(j.data.phone);
             });
           }} />}
+          {showLogoutConfirm && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]" onClick={() => setShowLogoutConfirm(false)}>
+              <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl animate-[slideUp_200ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">确认退出</h3>
+                <p className="text-sm text-[#6B6B6B] mb-6">确定要退出登录吗？</p>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="secondary" size="sm" onClick={() => setShowLogoutConfirm(false)}>
+                    取消
+                  </Button>
+                  <Button variant="danger" size="sm" icon={<LogOut size={14} />} onClick={() => {
+                    clearToken();
+                    setUserPhone("");
+                    setUserRole("");
+                    setShowLogoutConfirm(false);
+                    router.push("/");
+                  }}>
+                    确认退出
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex min-h-screen pb-16 md:pb-0">
             <aside className="hidden md:flex flex-col w-[220px] bg-white border-r border-[#EBEBEB] p-4 shrink-0">
@@ -103,7 +127,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs text-[#6B6B6B] truncate max-w-[120px]">{userPhone}</span>
                     <button
-                      onClick={() => { clearToken(); setUserPhone(""); setUserRole(""); router.push("/"); }}
+                      onClick={() => setShowLogoutConfirm(true)}
                       className="flex items-center gap-1 text-xs text-[#9E9E9E] hover:text-[#C75B5B] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C75B5B]/30 focus-visible:rounded"
                     >
                       <LogOut size={14} />
@@ -149,7 +173,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             })}
             {userPhone ? (
               <button
-                onClick={() => { clearToken(); setUserPhone(""); setUserRole(""); router.push("/"); }}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex flex-col items-center gap-0.5 px-3 pt-[4px] pb-1.5 min-w-[56px] text-xs text-[#9E9E9E] hover:text-[#C75B5B] border-t-2 border-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C75B5B]/30 focus-visible:ring-inset"
               >
                 <LogOut size={20} />
