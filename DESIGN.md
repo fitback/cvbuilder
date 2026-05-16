@@ -85,6 +85,13 @@
 - **Desktop sidebar:** Persistent 200px left sidebar. Active item uses `border-l-[3px] border-[#B75C3A]` with `pl-[9px]` (compensating for border). Inactive items use `border-l-[3px] border-transparent`. No background fill on active state — the border alone signals active.
 - **Mobile bottom nav:** Fixed bottom bar with 5 items max. Active item uses `border-t-2 border-[#B75C3A] pt-[4px]`. Inactive items use `border-t-2 border-transparent`.
 - **Login/Logout:** Placed at bottom of sidebar on desktop; inline in header on mobile. Active states follow the same border-based pattern.
+- **Admin nav:** Admin users see a "管理" nav item with `ShieldAlert` icon. Points balance and recharge nav are hidden for admin.
+
+## Pages
+
+- **Login page (`/`):** Split-panel layout. Left panel (50%) — gradient background (`#B75C3A` → `#9A4E31`) with brand name, feature list (4 items with icons), and bottom tagline. Right panel (50%) — white background with login/register toggle tabs, phone/password inputs, submit button. On mobile, panels stack vertically (branding on top, form below). No sidebar or top nav shown on this page.
+- **Admin page (`/admin`):** Tab-based layout (待审批 / 审批历史). Pending tab shows individual cards with user phone, amount, order number, and approve/reject buttons. History tab shows a table with columns: user, amount, points, order number, status badge, note, time. QR code management section at top with upload button and preview thumbnail.
+- **Logout confirm:** Centered modal overlay with "确认退出" title, "确定要退出登录吗？" description, and two buttons (取消 / 确认退出). Uses `danger` button variant for confirm action.
 
 ## Interactive States (design tokens applied)
 
@@ -112,3 +119,8 @@
 | 2026-05-10 | Nav active border instead of bg fill | Border-only active state is cleaner when there are multiple card-type items on the page; avoids confusing "which is the active section" |
 | 2026-05-10 | Per-route page transition via key={pathname} | Prevents fade from re-triggering on unrelated re-renders while still animating on actual navigation |
 | 2026-05-10 | scale-[0.97] active state on buttons | Micro-feedback for press without the complexity of lift effects on all interactive elements |
+| 2026-05-16 | Login page as split-panel layout | Branding + features on left, compact auth form on right — separates identity from utility |
+| 2026-05-16 | Route guard in layout for unauthenticated users | Prevents access to protected pages without login; checks isLoggedIn on each render |
+| 2026-05-16 | Admin page with tab-based layout | Pending approvals need individual card layout (approve/reject per item), history works better as table |
+| 2026-05-16 | Logout confirmation modal | Prevents accidental logout; uses danger variant for emphasis |
+| 2026-05-16 | Gradient left panel (#B75C3A → #9A4E31) on login page | Warm gradient matches terracotta accent; creates visual separation between auth and branding |

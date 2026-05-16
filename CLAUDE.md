@@ -25,7 +25,7 @@ ResumeMatcher — 面向国内求职者的简历优化与岗位匹配平台。�
 
 Monorepo (npm workspaces):
 - `packages/frontend/` — Next.js App Router (port 3000)
-- `packages/backend/` — NestJS with modules: `prisma`, `auth`, `resumes`, `jobs`, `analyze`, `generate`, `export`, `points`, `recharges`, `generated-resumes`
+- `packages/backend/` — NestJS with modules: `prisma`, `auth`, `resumes`, `jobs`, `analyze`, `generate`, `export`, `points`, `recharges`, `generated-resumes`, `payment`
 - `packages/shared/` — TypeScript types/DTOs (must build before frontend/backend)
 
 ## Common Commands
@@ -64,7 +64,7 @@ The shared package must be built (`npm run build -w packages/shared`) before the
 ## Key Architecture
 
 - **Global response interceptor** (`ApiResponseInterceptor`): success → `{success: true, data}`, error → `{success: false, error: {code, message}}`. Controllers return raw data; interceptor wraps it.
-- **Auth flow**: `localStorage` JWT → `Authorization: Bearer <token>`. `AuthGuard` validates token, sets `req.userId`. Frontend `apiFetch()` auto-attaches token and handles 401 redirects.
+- **Auth flow**: `/` is the login/register page with split-panel layout (branding left, auth form right). Login/register via `POST /auth/login` or `POST /auth/register` → JWT stored in `localStorage`. After login, redirects to `/dashboard`. Layout checks `isLoggedIn()` and fetches user info (phone, role) reactively via `useEffect` on `loggedIn` state. Route guard in layout redirects unauthenticated users to `/` for all protected pages.
 - **Async resume parsing**: upload creates DB record + BullMQ job → `parse.worker.ts` extracts text (mammoth/pdfjs-dist) → DeepSeek extracts structured JSON → updates `parseStatus`. Dashboard polls for status.
 - **Two-stage AI pipeline**: "分析大师" (`prompts/analyze-master.md`) → analysis result → "生成大师" (`prompts/generate-master.md`) → Markdown resume.
 - **Analysis idempotency**: `@@unique([resumeId, jobDescriptionId])` on `AnalysisRecord`. Re-analyzing same pair returns cached result.
@@ -94,6 +94,19 @@ Key tokens (see `DESIGN.md` for full spec):
 - Backend modules use relative imports (`../prisma/prisma.service`, `../auth/auth.guard`)
 - Shared types import from `@cvbuilder/shared` (both frontend and backend)
 - Backend controllers use `@Controller("resource-name")` with `@UseGuards(AuthGuard)` and `@UseInterceptors(ApiResponseInterceptor)`
+
+## Admin System
+
+- **AdminGuard** (`admin.guard.ts`): reusable guard that checks `user.role === "admin"` via PrismaService. Used on admin-only endpoints alongside `AuthGuard`.
+- **Admin page** (`/admin`): Shows pending recharge approvals (approve/reject), approval history table, and payment QR code upload section. Admin nav item only visible when `userRole === "admin"`.
+- **Admin sidebar**: Points balance and recharge nav are hidden for admin users. "管理" nav item appears instead.
+- **Seed script** (`packages/backend/seed.ts`): creates admin account (phone: `13800000000`, password: `admin123`). Run with `npx ts-node packages/backend/seed.ts`.
+
+## Payment QR Code
+
+- **PaymentModule** (`packages/backend/src/payment/`): `POST /payment/qr-code` (admin only, upload image) + `GET /payment/qr-code` (check if QR exists) + `GET /payment/qr-code-image` (serve image).
+- QR code stored at `./data/payment-qr/qr-code.png` (same dir level as resume storage).
+- Admin uploads QR code from `/admin` page. User recharge page (`/recharge`) displays the QR code, falling back to a placeholder icon if unset.
 
 ## Module Pattern (Backend)
 
