@@ -34,11 +34,13 @@ export class RechargesController {
   }
 
   @Post(":id/approve")
+  @UseGuards(AdminGuard)
   async approve(@Param("id") id: string, @Req() req: any) {
     return this.rechargesService.approve(id, req.userId);
   }
 
   @Post(":id/reject")
+  @UseGuards(AdminGuard)
   async reject(@Param("id") id: string, @Body() body: RejectRechargeDto, @Req() req: any) {
     return this.rechargesService.reject(id, req.userId, body.note);
   }
