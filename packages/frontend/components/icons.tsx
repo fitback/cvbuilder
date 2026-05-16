@@ -144,3 +144,7 @@ export const ShieldAlert = createIcon(
 export const Plus = createIcon(
   <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>
 );
+
+export const Image = createIcon(
+  <><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></>
+);

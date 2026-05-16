@@ -9,12 +9,13 @@ import { ExportModule } from "./export/export.module";
 import { PointsModule } from "./points/points.module";
 import { RechargesModule } from "./recharges/recharges.module";
 import { GeneratedResumesModule } from "./generated-resumes/generated-resumes.module";
+import { PaymentModule } from "./payment/payment.module";
 
 @Module({
   imports: [
     PrismaModule, AuthModule, ResumesModule, JobsModule,
     AnalyzeModule, GenerateModule, ExportModule,
-    PointsModule, RechargesModule, GeneratedResumesModule,
+    PointsModule, RechargesModule, GeneratedResumesModule, PaymentModule,
   ],
 })
 export class AppModule {}

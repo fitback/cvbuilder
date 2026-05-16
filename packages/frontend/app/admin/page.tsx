@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { PendingRecharge, RechargeHistoryItem } from "@cvbuilder/shared";
 import { Button } from "../../components/Button";
-import { Check, X, AlertCircle, User as UserIcon, Clock, ShieldAlert, History } from "../../components/icons";
+import { Check, X, AlertCircle, User as UserIcon, Clock, ShieldAlert, History, Upload, Image } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../lib/auth";
 
@@ -18,34 +18,37 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [approving, setApproving] = useState<string | null>(null);
+
+  // QR code state
+  const [qrExists, setQrExists] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   async function fetchPending() {
-    try {
-      const res = await apiFetch(`${API}/recharges/pending`);
-      const json = await res.json();
-      if (json.success) setPending(json.data ?? []);
-      else setError(json.error?.message ?? "加载失败");
-    } catch {
-      setError("加载失败");
-    }
+    const res = await apiFetch(`${API}/recharges/pending`);
+    const json = await res.json();
+    if (json.success) setPending(json.data ?? []);
   }
 
   async function fetchHistory() {
+    const res = await apiFetch(`${API}/recharges/history`);
+    const json = await res.json();
+    if (json.success) setHistory(json.data ?? []);
+  }
+
+  async function fetchQrStatus() {
     try {
-      const res = await apiFetch(`${API}/recharges/history`);
+      const res = await apiFetch(`${API}/payment/qr-code`);
       const json = await res.json();
-      if (json.success) setHistory(json.data ?? []);
-      else setError(json.error?.message ?? "加载失败");
-    } catch {
-      setError("加载失败");
-    }
+      if (json.success) setQrExists(json.data.exists);
+    } catch {}
   }
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    Promise.all([fetchPending(), fetchHistory()]).finally(() => setLoading(false));
+    Promise.all([fetchPending(), fetchHistory(), fetchQrStatus()]).finally(() => setLoading(false));
   }, []);
 
   async function handleApprove(id: string) {
@@ -78,6 +81,34 @@ export default function AdminPage() {
     }
   }
 
+  async function handleUploadQr(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast("仅支持图片格式", "error");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast("图片不能超过 2MB", "error");
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await apiFetch(`${API}/payment/qr-code`, { method: "POST", body: form });
+      const json = await res.json();
+      if (json.success) {
+        toast("付款码已更新", "success");
+        setQrExists(true);
+      } else {
+        toast(json.error?.message ?? "上传失败", "error");
+      }
+    } catch {
+      toast("上传失败，请重试", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (error && !loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-[fadeIn_200ms_ease-out]">
@@ -95,7 +126,59 @@ export default function AdminPage() {
     <div className="animate-[slideUp_300ms_ease-out] space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-[#1A1A1A]">管理后台</h2>
-        <p className="text-sm text-[#6B6B6B] mt-1">充值审批与记录管理</p>
+        <p className="text-sm text-[#6B6B6B] mt-1">充值审批与付款码管理</p>
+      </div>
+
+      {/* QR Code Management */}
+      <div className="bg-white border border-[#EBEBEB] rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Image size={18} className="text-[#B75C3A]" />
+            <h3 className="text-sm font-semibold text-[#1A1A1A]">付款码管理</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadQr(f); }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Upload size={14} />}
+              loading={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              上传付款码
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {qrExists ? (
+            <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-[#EBEBEB] bg-[#F5F4F2]">
+              <img
+                src={`${API}/payment/qr-code-image?t=${Date.now()}`}
+                alt="付款二维码"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="w-32 h-32 rounded-xl border border-dashed border-[#D4D4D4] flex items-center justify-center bg-[#FAFAF9]">
+              <div className="text-center">
+                <Image size={28} className="mx-auto text-[#D4D4D4] mb-1" />
+                <p className="text-xs text-[#9E9E9E]">暂无付款码</p>
+              </div>
+            </div>
+          )}
+          <div className="text-xs text-[#6B6B6B] space-y-1">
+            <p>建议尺寸：300 × 300 像素</p>
+            <p>格式：PNG、JPG</p>
+            <p>上限：2MB</p>
+            <p className="text-[#B75C3A]">上传后将在用户充值页面显示</p>
+          </div>
+        </div>
       </div>
 
       {/* Tab bar */}

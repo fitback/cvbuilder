@@ -12,13 +12,6 @@ import "./globals.css";
 
 const API = "http://localhost:3001";
 
-const navItems = [
-  { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
-  { href: "/upload", label: "上传简历", icon: Upload },
-  { href: "/jobs", label: "我的 JD", icon: Briefcase },
-  { href: "/recharge", label: "充值", icon: Coins },
-];
-
 const adminNavItem = { href: "/admin", label: "管理", icon: ShieldAlert };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [userPhone, setUserPhone] = useState("");
   const [userRole, setUserRole] = useState("");
   const [showPoints, setShowPoints] = useState(false);
+
+  const navItems = [
+    { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
+    { href: "/upload", label: "上传简历", icon: Upload },
+    { href: "/jobs", label: "我的 JD", icon: Briefcase },
+    ...(userRole !== "admin" ? [{ href: "/recharge", label: "充值", icon: Coins }] : []),
+  ];
 
   const allNavItems = userRole === "admin" ? [...navItems, adminNavItem] : navItems;
 

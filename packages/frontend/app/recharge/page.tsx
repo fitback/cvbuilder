@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../../components/Button";
-import { Coins, ChevronLeft, Check, AlertCircle, Sparkles } from "../../components/icons";
+import { Coins, ChevronLeft, Check, AlertCircle, Sparkles, Image } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../lib/auth";
 
@@ -14,7 +14,14 @@ export default function RechargePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
   const { toast } = useToast();
+
+  useEffect(() => {
+    apiFetch(`${API}/payment/qr-code`).then((r) => r.json()).then((j) => {
+      if (j.success && j.data?.exists) setQrUrl(`${API}/payment/qr-code-image?t=${Date.now()}`);
+    }).catch(() => {});
+  }, []);
 
   async function submit() {
     setError("");
@@ -63,8 +70,12 @@ export default function RechargePage() {
       <div className="flex gap-8 flex-col md:flex-row">
         <div className="flex-1 md:max-w-[280px]">
           <div className="bg-white border border-[#EBEBEB] rounded-xl p-6 text-center">
-            <div className="w-40 h-40 bg-[#F5F4F2] rounded-xl mx-auto mb-4 flex items-center justify-center">
-              <Coins size={48} className="text-[#D4D4D4]" />
+            <div className="w-40 h-40 bg-[#F5F4F2] rounded-xl mx-auto mb-4 flex items-center justify-center overflow-hidden">
+              {qrUrl ? (
+                <img src={qrUrl} alt="付款二维码" className="w-full h-full object-contain" />
+              ) : (
+                <Image size={48} className="text-[#D4D4D4]" />
+              )}
             </div>
             <p className="text-sm text-[#6B6B6B]">
               微信扫码转账后，填写下方信息提交审核
