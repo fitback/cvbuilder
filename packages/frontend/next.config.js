@@ -1,3 +1,5 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 /** @type {import('next').NextConfig} */
 module.exports = {
   transpilePackages: ["@cvbuilder/shared"],
@@ -5,7 +7,7 @@ module.exports = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3001/:path*",
+        destination: `${API_URL}/:path*`,
       },
     ];
   },

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../components/Button";
 import { Upload, FileText, Check, AlertCircle, Spinner } from "../../components/icons";
 import { useToast } from "../../components/Toast";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 type UploadStep = "idle" | "uploading" | "parsing" | "done";
 

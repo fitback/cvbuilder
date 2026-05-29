@@ -5,9 +5,9 @@ import { JobDescriptionItem } from "@cvbuilder/shared";
 import { Button } from "../../components/Button";
 import { Briefcase, Plus, Trash2, AlertCircle, RefreshCw } from "../../components/icons";
 import { useToast } from "../../components/Toast";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<JobDescriptionItem[]>([]);

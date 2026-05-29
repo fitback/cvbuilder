@@ -7,9 +7,9 @@ import { GeneratedResumeDetail } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
 import { FileText, AlertCircle, RefreshCw, Check, Copy, Download } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
-import { apiFetch } from "../../../lib/auth";
+import { apiFetch, API_BASE } from "../../../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function GeneratedResumeEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -62,6 +62,27 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
       toast("PDF 已导出", "success");
     } catch {
       toast("PDF 导出失败", "error");
+    }
+  }
+
+  async function exportDocx() {
+    try {
+      const res = await apiFetch(`${API}/export/docx`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: content }),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "resume.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("DOCX 已导出", "success");
+    } catch {
+      toast("DOCX 导出失败", "error");
     }
   }
 
@@ -132,6 +153,9 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           </Button>
           <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={exportPdf}>
             导出 PDF
+          </Button>
+          <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={exportDocx}>
+            导出 DOCX
           </Button>
           <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard")}>
             返回

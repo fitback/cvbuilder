@@ -11,7 +11,9 @@ async function bootstrap() {
   app.use(cookieParser());
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      const allowed = process.env.CORS_ORIGIN;
       if (!origin || origin.startsWith("http://localhost")) return callback(null, true);
+      if (allowed && origin === allowed) return callback(null, true);
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,

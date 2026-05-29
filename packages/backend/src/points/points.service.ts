@@ -12,8 +12,9 @@ export class PointsService {
       data: { points: { decrement: amount } },
     });
     if (result.count === 0) {
+      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
       throw new HttpException(
-        { code: ErrorCode.QUOTA_EXCEEDED, message: `积分不足，需要 ${amount} 积分` },
+        { code: ErrorCode.QUOTA_EXCEEDED, message: `积分不足，需要 ${amount} 积分`, data: { balance: user.points } },
         403,
       );
     }

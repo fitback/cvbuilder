@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Button } from "./Button";
 import { User, X, Sparkles, AlertCircle, Check } from "./icons";
-import { setToken } from "../lib/auth";
+import { setToken, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: (phone: string) => void }) {
   const [tab, setTab] = useState<"login" | "register">("login");

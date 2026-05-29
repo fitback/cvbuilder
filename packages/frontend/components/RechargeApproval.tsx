@@ -5,9 +5,9 @@ import { PendingRecharge } from "@cvbuilder/shared";
 import { Button } from "./Button";
 import { Check, X, AlertCircle, User as UserIcon } from "./icons";
 import { useToast } from "./Toast";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function RechargeApproval() {
   const [items, setItems] = useState<PendingRecharge[]>([]);

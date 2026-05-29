@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { PointTransactionItem } from "@cvbuilder/shared";
 import { X, Spinner, Coins, ArrowUpRight, ArrowDownRight, RotateCcw } from "./icons";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 const TYPE_LABELS: Record<string, string> = {
   credit: "充值",

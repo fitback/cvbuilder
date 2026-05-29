@@ -8,10 +8,10 @@ import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
 import { ToastProvider } from "../components/Toast";
 import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut, ShieldAlert } from "../components/icons";
-import { isLoggedIn, clearToken, apiFetch } from "../lib/auth";
+import { isLoggedIn, clearToken, apiFetch, API_BASE } from "../lib/auth";
 import "./globals.css";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 const adminNavItem = { href: "/admin", label: "管理", icon: ShieldAlert };
 

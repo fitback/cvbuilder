@@ -2,20 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { Coins, ChevronRight } from "./icons";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function PointsBalance({ onOpenModal }: { onOpenModal: () => void }) {
   const [balance, setBalance] = useState<number | null>(null);
 
-  useEffect(() => {
+  function fetchBalance() {
     apiFetch(`${API}/points/balance`)
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setBalance(j.data.balance);
       })
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    fetchBalance();
+    window.addEventListener("points-updated", fetchBalance);
+    return () => window.removeEventListener("points-updated", fetchBalance);
   }, []);
 
   if (balance === null) return null;

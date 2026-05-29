@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Delete, Req, UseInterceptors, UploadedFile, UseGuards } from "@nestjs/common";
+import { Controller, Post, Get, Put, Param, Body, Delete, Req, UseInterceptors, UploadedFile, UseGuards } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ResumesService } from "./resumes.service";
 import { AuthGuard } from "../auth/auth.guard";
@@ -25,6 +25,15 @@ export class ResumesController {
   @Get(":id")
   async detail(@Param("id") id: string, @Req() req: any): Promise<ResumeDetail> {
     return this.resumesService.detail(id, req.userId);
+  }
+
+  @Put(":id")
+  async update(
+    @Param("id") id: string,
+    @Body() body: { parseResult?: any; rawText?: string },
+    @Req() req: any,
+  ): Promise<ResumeDetail> {
+    return this.resumesService.update(id, req.userId, body);
   }
 
   @Delete(":id")

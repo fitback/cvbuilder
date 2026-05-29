@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../components/Button";
 import { User, Sparkles, AlertCircle, Target, FileText, Download } from "../components/icons";
-import { setToken, isLoggedIn } from "../lib/auth";
+import { setToken, isLoggedIn, API_BASE } from "../lib/auth";
 import { useEffect } from "react";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function LoginPage() {
   const router = useRouter();

@@ -102,6 +102,42 @@ export class ResumesService {
     };
   }
 
+  async update(id: string, userId: string, body: { parseResult?: any; rawText?: string }): Promise<ResumeDetail> {
+    const resume = await this.prisma.resume.findUnique({
+      where: { id },
+      include: { _count: { select: { analysisRecords: true } } },
+    });
+    if (!resume || resume.userId !== userId) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
+    }
+
+    const data: any = {};
+    if (body.parseResult !== undefined) data.parseResult = body.parseResult;
+    if (body.rawText !== undefined) data.rawText = body.rawText;
+
+    if (Object.keys(data).length > 0) {
+      await this.prisma.resume.update({ where: { id }, data });
+    }
+
+    const updated = await this.prisma.resume.findUnique({
+      where: { id },
+      include: { _count: { select: { analysisRecords: true } } },
+    });
+
+    return {
+      id: updated!.id,
+      fileNameOriginal: updated!.fileNameOriginal ?? "",
+      fileType: updated!.fileType as "pdf" | "docx",
+      parseStatus: updated!.parseStatus as any,
+      fileSize: updated!.fileSize ?? 0,
+      freeAnalysisCount: updated!.freeAnalysisCount,
+      analysisCount: updated!._count.analysisRecords,
+      createdAt: updated!.createdAt.toISOString(),
+      parseResult: updated!.parseResult as any,
+      rawText: updated!.rawText,
+    };
+  }
+
   async delete(id: string, userId: string): Promise<{ success: true }> {
     const resume = await this.prisma.resume.findUnique({ where: { id } });
     if (!resume || resume.userId !== userId) {

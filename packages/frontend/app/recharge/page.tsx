@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { Button } from "../../components/Button";
 import { Coins, ChevronLeft, Check, AlertCircle, Sparkles, Image } from "../../components/icons";
 import { useToast } from "../../components/Toast";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function RechargePage() {
   const [amount, setAmount] = useState("");

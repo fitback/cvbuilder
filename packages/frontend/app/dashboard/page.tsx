@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { ResumeItem, GeneratedResumeItem } from "@cvbuilder/shared";
 import { Button } from "../../components/Button";
-import { FileText, Upload, Trash2, ChevronRight, AlertCircle, RefreshCw, Sparkles } from "../../components/icons";
+import { FileText, Upload, Trash2, ChevronRight, AlertCircle, RefreshCw } from "../../components/icons";
 import { useToast } from "../../components/Toast";
-import { apiFetch } from "../../lib/auth";
+import { apiFetch, API_BASE } from "../../lib/auth";
 import RechargeApproval from "../../components/RechargeApproval";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
@@ -174,9 +174,9 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {r.parseStatus === "parsed" && (
-                  <a href={`/analyze/${r.id}`}>
-                    <Button variant="secondary" size="sm" icon={<Sparkles size={14} />}>
-                      分析
+                  <a href={`/resumes/${r.id}`}>
+                    <Button variant="secondary" size="sm" icon={<FileText size={14} />}>
+                      解析
                     </Button>
                   </a>
                 )}

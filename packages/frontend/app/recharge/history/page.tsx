@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { RechargeItem } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
 import { Coins, ChevronLeft, Check, X, Clock } from "../../../components/icons";
-import { apiFetch } from "../../../lib/auth";
+import { apiFetch, API_BASE } from "../../../lib/auth";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Check; className: string }> = {
   pending: { label: "待审核", icon: Clock, className: "bg-[#C7953A]/10 text-[#C7953A]" },

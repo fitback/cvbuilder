@@ -14,3 +14,5 @@ dist/
 *.docx
 .env.local
 *.rtf
+*.rvf
+*.rvf.lock

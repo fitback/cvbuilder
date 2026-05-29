@@ -11,10 +11,10 @@ import {
   Target, Lightbulb, ShieldAlert,
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
-import { apiFetch } from "../../../lib/auth";
+import { apiFetch, API_BASE } from "../../../lib/auth";
 import InsufficientPoints from "../../../components/InsufficientPoints";
 
-const API = "http://localhost:3001";
+const API = API_BASE;
 
 type Step = "idle" | "analyzing" | "generating" | "done";
 
@@ -89,7 +89,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       if (!json.success) {
         if (json.error?.code === "QUOTA_EXCEEDED") {
           setPointsNeeded(30);
-          setCurrentBalance(0);
+          setCurrentBalance(json.error?.data?.balance ?? 0);
           setShowInsufficient(true);
           return;
         }
@@ -100,6 +100,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       setResult(json.data);
       setRemaining(json.data.remainingFreeCount);
       setStep("done");
+      window.dispatchEvent(new Event("points-updated"));
       toast("分析完成", "success");
       await fetchHistory();
     } catch {
@@ -124,7 +125,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       if (!json.success) {
         if (json.error?.code === "QUOTA_EXCEEDED") {
           setPointsNeeded(50);
-          setCurrentBalance(0);
+          setCurrentBalance(json.error?.data?.balance ?? 0);
           setShowInsufficient(true);
           return;
         }
@@ -134,6 +135,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       }
       setGeneratedMarkdown(json.data.markdown);
       setStep("done");
+      window.dispatchEvent(new Event("points-updated"));
       toast("简历生成成功", "success");
     } catch {
       setError("网络错误，请重试");

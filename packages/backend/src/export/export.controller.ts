@@ -18,4 +18,15 @@ export class ExportController {
     });
     res.send(pdf);
   }
+
+  @Post("docx")
+  async exportDocx(@Body() body: { markdown: string }, @Res() res: Response) {
+    const docx = await this.exportService.exportDocx(body.markdown);
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": 'attachment; filename="resume.docx"',
+      "Content-Length": docx.length.toString(),
+    });
+    res.send(docx);
+  }
 }
