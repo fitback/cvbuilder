@@ -1,7 +1,9 @@
 import { Injectable, HttpException, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PointsService } from "../points/points.service";
+import { AlipayService } from "../payment/alipay.service";
 import { ErrorCode } from "@cvbuilder/shared";
+import { v4 as uuid } from "uuid";
 
 @Injectable()
 export class RechargesService {
@@ -10,42 +12,84 @@ export class RechargesService {
   constructor(
     private prisma: PrismaService,
     private points: PointsService,
+    private alipay: AlipayService,
   ) {}
 
-  async create(userId: string, amount: number, orderNo: string) {
-    if (!Number.isInteger(amount) || amount < 1) {
+  async createOrder(userId: string, amount: number) {
+    if (!this.alipay.isValidPlan(amount)) {
       throw new HttpException(
-        { code: ErrorCode.INVALID_PARAMS, message: "充值金额必须为正整数" },
-        400,
-      );
-    }
-    if (!orderNo || orderNo.trim().length < 4) {
-      throw new HttpException(
-        { code: ErrorCode.INVALID_PARAMS, message: "请填写转账单号" },
+        { code: ErrorCode.INVALID_PARAMS, message: "请选择有效的充值金额" },
         400,
       );
     }
 
-    const existing = await this.prisma.rechargeRecord.findFirst({
-      where: { orderNo: orderNo.trim(), userId },
-    });
-    if (existing) {
-      throw new HttpException(
-        { code: ErrorCode.INVALID_PARAMS, message: "该单号已提交过" },
-        400,
-      );
-    }
+    const outTradeNo = `RC${Date.now()}${uuid().slice(0, 8)}`;
+    const points = AlipayService.getPoints(amount);
 
-    const record = await this.prisma.rechargeRecord.create({
+    // Create a pending recharge record
+    await this.prisma.rechargeRecord.create({
       data: {
         userId,
         amount,
-        points: amount * 10,
-        orderNo: orderNo.trim(),
+        points,
+        outTradeNo,
+        status: "pending",
       },
     });
 
-    return { id: record.id, amount, points: record.points, status: record.status };
+    const { codeUrl } = await this.alipay.createOrder(amount, outTradeNo);
+
+    // Save code_url for display
+    await this.prisma.rechargeRecord.updateMany({
+      where: { outTradeNo },
+      data: { codeUrl },
+    });
+
+    return { outTradeNo, codeUrl, amount, points };
+  }
+
+  async handleNotify(postData: Record<string, string>) {
+    try {
+      const result = this.alipay.parseNotify(postData);
+      if (!result || !result.success) {
+        return { code: "FAIL", message: "通知处理失败" };
+      }
+
+      const record = await this.prisma.rechargeRecord.findFirst({
+        where: { outTradeNo: result.outTradeNo },
+      });
+
+      if (!record) {
+        this.logger.warn(`Notify for unknown order: ${result.outTradeNo}`);
+        return { code: "FAIL", message: "订单不存在" };
+      }
+
+      if (record.status === "approved") {
+        return { code: "SUCCESS", message: "已处理" };
+      }
+
+      await this.prisma.rechargeRecord.update({
+        where: { id: record.id },
+        data: {
+          status: "approved",
+          transactionId: result.tradeNo,
+          approvedAt: new Date(),
+        },
+      });
+
+      await this.points.credit(
+        record.userId,
+        record.points,
+        `支付宝充值 ${record.amount} 元`,
+        record.id,
+      );
+
+      this.logger.log(`Recharge paid: ${record.id} userId=${record.userId} amount=${record.amount}`);
+      return { code: "SUCCESS", message: "OK" };
+    } catch (err: any) {
+      this.logger.error(`Notify error: ${err.message}`);
+      return { code: "FAIL", message: err.message };
+    }
   }
 
   async listMine(userId: string) {
@@ -53,8 +97,8 @@ export class RechargesService {
       where: { userId },
       orderBy: { createdAt: "desc" },
       select: {
-        id: true, amount: true, points: true, orderNo: true,
-        status: true, adminNote: true, createdAt: true, approvedAt: true,
+        id: true, amount: true, points: true, outTradeNo: true,
+        status: true, createdAt: true, approvedAt: true,
       },
     });
     return records.map((r) => ({
@@ -64,27 +108,10 @@ export class RechargesService {
     }));
   }
 
-  async listPending() {
+  async listAll() {
     const records = await this.prisma.rechargeRecord.findMany({
-      where: { status: "pending" },
-      orderBy: { createdAt: "asc" },
-      include: { user: { select: { phone: true } } },
-    });
-    return records.map((r) => ({
-      id: r.id,
-      userPhone: r.user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2"),
-      amount: r.amount,
-      points: r.points,
-      orderNo: r.orderNo,
-      createdAt: r.createdAt.toISOString(),
-    }));
-  }
-
-  async listHistory() {
-    const records = await this.prisma.rechargeRecord.findMany({
-      where: { status: { in: ["approved", "rejected"] } },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
       include: { user: { select: { phone: true } } },
     });
     return records.map((r) => ({
@@ -92,65 +119,29 @@ export class RechargesService {
       userPhone: r.user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2"),
       amount: r.amount,
       points: r.points,
-      orderNo: r.orderNo,
+      outTradeNo: r.outTradeNo,
+      transactionId: r.transactionId,
       status: r.status,
-      adminNote: r.adminNote ?? undefined,
       createdAt: r.createdAt.toISOString(),
       approvedAt: r.approvedAt?.toISOString() ?? undefined,
     }));
   }
 
-  async approve(id: string, adminId: string) {
-    const record = await this.prisma.rechargeRecord.findUnique({ where: { id } });
+  async getStatus(outTradeNo: string, userId: string) {
+    const record = await this.prisma.rechargeRecord.findFirst({
+      where: { outTradeNo, userId },
+    });
     if (!record) {
       throw new HttpException(
-        { code: ErrorCode.RESOURCE_NOT_FOUND, message: "充值记录不存在" },
+        { code: ErrorCode.RESOURCE_NOT_FOUND, message: "订单不存在" },
         404,
       );
     }
-    if (record.status !== "pending") {
-      throw new HttpException(
-        { code: ErrorCode.INVALID_PARAMS, message: "该记录已处理" },
-        400,
-      );
-    }
-
-    await this.prisma.rechargeRecord.update({
-      where: { id },
-      data: { status: "approved", adminId, approvedAt: new Date() },
-    });
-
-    await this.points.credit(
-      record.userId,
-      record.points,
-      `充值 ${record.amount} 元`,
-      record.id,
-    );
-
-    this.logger.log(`Recharge approved: ${id} userId=${record.userId} amount=${record.amount} points=${record.points} adminId=${adminId}`);
-    return { success: true };
-  }
-
-  async reject(id: string, adminId: string, note?: string) {
-    const record = await this.prisma.rechargeRecord.findUnique({ where: { id } });
-    if (!record) {
-      throw new HttpException(
-        { code: ErrorCode.RESOURCE_NOT_FOUND, message: "充值记录不存在" },
-        404,
-      );
-    }
-    if (record.status !== "pending") {
-      throw new HttpException(
-        { code: ErrorCode.INVALID_PARAMS, message: "该记录已处理" },
-        400,
-      );
-    }
-
-    await this.prisma.rechargeRecord.update({
-      where: { id },
-      data: { status: "rejected", adminId, adminNote: note || null },
-    });
-
-    return { success: true };
+    return {
+      outTradeNo: record.outTradeNo,
+      status: record.status,
+      amount: record.amount,
+      points: record.points,
+    };
   }
 }

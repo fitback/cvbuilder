@@ -4,13 +4,17 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const phone = "13800000000";
-  const password = "admin123";
+  const phone = process.env.ADMIN_PHONE || "13800000000";
+  const password = process.env.ADMIN_PASSWORD || "admin123";
+
+  // Warn if using defaults in production
+  if (!process.env.ADMIN_PASSWORD && process.env.NODE_ENV === "production") {
+    console.warn("⚠ ADMIN_PASSWORD not set, using default. Change immediately after first login.");
+  }
 
   const existing = await prisma.user.findUnique({ where: { phone } });
   if (existing) {
     console.log(`Admin user already exists (id: ${existing.id}, role: ${existing.role})`);
-    // Ensure role is admin
     if (existing.role !== "admin") {
       await prisma.user.update({ where: { id: existing.id }, data: { role: "admin" } });
       console.log("Updated role to admin");
@@ -23,7 +27,7 @@ async function main() {
     data: { phone, passwordHash, role: "admin" },
   });
 
-  console.log(`Admin user created:`);
+  console.log(`Admin created:`);
   console.log(`  Phone: ${phone}`);
   console.log(`  Password: ${password}`);
   console.log(`  Role: admin`);

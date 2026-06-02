@@ -156,7 +156,6 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
           </h2>
           <p className="text-sm text-[#6B6B6B] mt-1">
             {resume.parseStatus === "parsed" ? "解析完成" : resume.parseStatus === "parsing" ? "解析中..." : "解析失败"}
-            {resume.freeAnalysisCount > 0 && ` · 剩余免费分析 ${resume.freeAnalysisCount} 次`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -353,7 +352,7 @@ function Field({
   placeholder,
 }: {
   label: string;
-  value: string;
+  value: string | undefined;
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
@@ -362,7 +361,7 @@ function Field({
       <label className="block text-xs font-medium text-[#6B6B6B] mb-1">{label}</label>
       <input
         type="text"
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm text-[#2D2D2D] focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A]"

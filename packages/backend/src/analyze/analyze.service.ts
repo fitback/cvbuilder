@@ -71,27 +71,14 @@ export class AnalyzeService {
         jdCoreDecoding: result.jdCoreDecoding ?? [],
         optimizationSuggestions: result.optimizationSuggestions ?? [],
         detailChecklist: result.detailChecklist ?? [],
-        remainingFreeCount: resume.freeAnalysisCount,
       };
     }
 
-    // Admin users bypass quota
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const isAdmin = user.role === "admin";
 
-    let remainingFreeCount = 0;
-    let deductedPoints = false;
     if (!isAdmin) {
-      if (resume.freeAnalysisCount > 0) {
-        await this.prisma.resume.update({
-          where: { id: resume.id },
-          data: { freeAnalysisCount: { decrement: 1 } },
-        });
-        remainingFreeCount = resume.freeAnalysisCount - 1;
-      } else {
-        await this.points.deduct(userId, 30, "AI分析", body.resumeId);
-        deductedPoints = true;
-      }
+      await this.points.deduct(userId, 30, "AI分析", body.resumeId);
     }
 
     try {
@@ -117,18 +104,10 @@ export class AnalyzeService {
         jdCoreDecoding: analysisResult.jdCoreDecoding ?? [],
         optimizationSuggestions: analysisResult.optimizationSuggestions ?? [],
         detailChecklist: analysisResult.detailChecklist ?? [],
-        remainingFreeCount,
       };
     } catch (err) {
       if (!isAdmin) {
-        if (deductedPoints) {
-          await this.points.refund(userId, 30, "AI分析失败退还", body.resumeId);
-        } else {
-          await this.prisma.resume.update({
-            where: { id: resume.id },
-            data: { freeAnalysisCount: { increment: 1 } },
-          });
-        }
+        await this.points.refund(userId, 30, "AI分析失败退还", body.resumeId);
       }
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "AI服务暂时不可用，请稍后重试" }, 503);
     }
@@ -140,7 +119,7 @@ export class AnalyzeService {
       include: { jobDescription: { select: { title: true, company: true } } },
       orderBy: { createdAt: "desc" },
     });
-    return records.filter((r) => r.analysisResult != null).map((r) => ({
+    return records.filter((r: any) => r.analysisResult != null).map((r: any) => ({
       id: r.id,
       matchScore: r.matchScore ?? 0,
       jdTitle: r.jobDescription.title,
@@ -159,11 +138,11 @@ export class AnalyzeService {
       },
     });
     return records
-      .filter((r) => {
+      .filter((r: any) => {
         const ar = r.analysisResult as any;
         return ar?.editedResume;
       })
-      .map((r) => ({
+      .map((r: any) => ({
         analysisRecordId: r.id,
         resumeId: r.resumeId,
         resumeFileName: r.resume.fileNameOriginal ?? "",

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **项目进度与待办**：[PROGRESS.md](./PROGRESS.md) — 包含版本记录、已知 Bug、待完善功能、上次工作位置。
+
 ## Project Overview
 
 ResumeMatcher — 面向国内求职者的简历优化与岗位匹配平台。三大核心功能：简历分析（AI 评估匹配度 + 优化建议）、简历生成（AI 重构高匹配度简历）、在线编辑 + PDF 导出。

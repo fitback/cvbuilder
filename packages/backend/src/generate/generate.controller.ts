@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Put, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { GenerateService } from "./generate.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -11,6 +12,7 @@ export class GenerateController {
   constructor(private readonly generateService: GenerateService) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async generate(@Body() body: GenerateRequest, @Req() req: any): Promise<GenerateResponse> {
     return this.generateService.generate(body, req.userId);
   }

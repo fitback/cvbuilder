@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { AuthGuard } from "./auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -10,11 +11,13 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post("register")
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async register(@Body() body: RegisterDto) {
     return this.authService.register(body.phone, body.password);
   }
 
   @Post("login")
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async login(@Body() body: LoginDto) {
     return this.authService.login(body.phone, body.password);
   }

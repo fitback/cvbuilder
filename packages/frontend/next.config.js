@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const BACKEND_URL = "http://localhost:3001";
 
 /** @type {import('next').NextConfig} */
 module.exports = {
@@ -7,7 +7,7 @@ module.exports = {
     return [
       {
         source: "/api/:path*",
-        destination: `${API_URL}/:path*`,
+        destination: `${BACKEND_URL}/:path*`,
       },
     ];
   },

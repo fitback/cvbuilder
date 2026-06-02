@@ -83,7 +83,10 @@ model RechargeRecord {
   user          User      @relation(fields: [userId], references: [id])
   amount        Int
   points        Int
-  orderNo       String
+  orderNo       String?
+  outTradeNo    String?
+  transactionId String?
+  codeUrl       String?
   status        String    @default("pending")
   adminNote     String?
   adminId       String?
@@ -93,6 +96,7 @@ model RechargeRecord {
 
   @@index([userId])
   @@index([status])
+  @@index([outTradeNo])
 }
 
 model PointTransaction {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "../components/Button";
 import { User, Sparkles, AlertCircle, Target, FileText, Download } from "../components/icons";
 import { setToken, isLoggedIn, API_BASE } from "../lib/auth";
+import { getErrorMessage } from "../lib/error-codes";
 import { useEffect } from "react";
 
 const API = API_BASE;
@@ -34,12 +35,12 @@ export default function LoginPage() {
       });
       const json = await res.json();
       if (!json.success) {
-        setError(json.error?.message ?? "操作失败");
+        setError(getErrorMessage(json));
         return;
       }
       setToken(json.data.token);
       if (tab === "register") {
-        setGiftNotice("注册成功！已赠送 30 积分");
+        setGiftNotice("注册成功！已赠送 50 积分");
         setTimeout(() => setGiftNotice(""), 4000);
       }
       // Navigate to dashboard on success
@@ -159,7 +160,7 @@ export default function LoginPage() {
 
               {tab === "register" && (
                 <p className="text-xs text-[#9E9E9E] text-center">
-                  注册即赠送 <strong className="text-[#B75C3A]">30</strong> 积分
+                  注册即赠送 <strong className="text-[#B75C3A]">50</strong> 积分
                 </p>
               )}
             </div>

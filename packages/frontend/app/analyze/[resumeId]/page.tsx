@@ -12,6 +12,7 @@ import {
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
+import { getErrorMessage } from "../../../lib/error-codes";
 import InsufficientPoints from "../../../components/InsufficientPoints";
 
 const API = API_BASE;
@@ -93,7 +94,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
           setShowInsufficient(true);
           return;
         }
-        setError(json.error?.message ?? "分析失败");
+        setError(getErrorMessage(json));
         setStep("idle");
         return;
       }
@@ -129,14 +130,26 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
           setShowInsufficient(true);
           return;
         }
-        setError(json.error?.message ?? "生成失败");
+        setError(getErrorMessage(json));
         setStep("done");
         return;
       }
-      setGeneratedMarkdown(json.data.markdown);
+      const generated = json.data.markdown;
+      setGeneratedMarkdown(generated);
       setStep("done");
       window.dispatchEvent(new Event("points-updated"));
       toast("简历生成成功", "success");
+
+      // Auto-save to prevent loss on refresh
+      try {
+        const jd = jobs.find((j) => j.id === selectedJd);
+        const autoName = `优化简历 - ${jd?.title ?? "未知岗位"} - ${new Date().toISOString().slice(0, 10)}`;
+        await apiFetch(`${API}/generated-resumes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: autoName, content: generated, resumeId, analysisRecordId: viewingHistoryId }),
+        });
+      } catch {}
     } catch {
       setError("网络错误，请重试");
       setStep("done");

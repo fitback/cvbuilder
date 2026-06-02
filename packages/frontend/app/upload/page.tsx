@@ -71,6 +71,15 @@ export default function UploadPage() {
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-[#1A1A1A]">上传简历</h2>
         <p className="text-sm text-[#6B6B6B] mt-1">支持 PDF 和 Word 格式，AI 自动解析简历内容</p>
+        <div className="mt-4 p-4 bg-[#FAFAF9] rounded-lg border border-[#EBEBEB]">
+          <p className="text-xs font-medium text-[#2D2D2D] mb-2">为了获得最佳解析效果：</p>
+          <ul className="text-xs text-[#6B6B6B] space-y-1 list-disc pl-4">
+            <li>使用 <strong>Word (.docx)</strong> 格式解析成功率最高</li>
+            <li>PDF 请确保是<strong>文字型</strong>（非扫描件/图片），否则无法提取文本</li>
+            <li>文件大小不超过 <strong>5MB</strong></li>
+            <li>简历内容建议 200 字以上，以确保 AI 准确提取</li>
+          </ul>
+        </div>
       </div>
 
       <div

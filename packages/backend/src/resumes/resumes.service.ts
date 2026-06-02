@@ -23,8 +23,31 @@ export class ResumesService {
   async upload(file: Express.Multer.File, userId: string): Promise<UploadResponse> {
     if (!file) throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "No file provided" }, 400);
 
-    const fileType = ALLOWED_TYPES[file.mimetype];
-    if (!fileType) throw new HttpException({ code: ErrorCode.FILE_TYPE_UNSUPPORTED, message: "仅支持 PDF 和 Word 格式" }, 409);
+    // Empty file check
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "文件为空，请重新上传" }, 400);
+    }
+
+    // Magic bytes validation
+    const header = file.buffer.slice(0, 4);
+    const isPdf = header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46; // %PDF
+    const isDocx = header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04; // PK..
+
+    if (!isPdf && !isDocx) {
+      throw new HttpException({ code: ErrorCode.FILE_TYPE_UNSUPPORTED, message: "文件格式无效，仅支持 PDF 和 Word (.docx) 格式" }, 409);
+    }
+
+    const detectedType = isPdf ? "pdf" : "docx";
+    const claimedType = ALLOWED_TYPES[file.mimetype];
+    if (claimedType && claimedType !== detectedType) {
+      throw new HttpException({ code: ErrorCode.FILE_TYPE_UNSUPPORTED, message: "文件扩展名与实际内容不符" }, 409);
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new HttpException({ code: ErrorCode.FILE_TOO_LARGE, message: "文件大小超过 5MB 限制" }, 413);
+    }
+
+    const fileType = claimedType || detectedType;
 
     const storagePath = process.env.RESUME_STORAGE_PATH || "./data/resumes";
     fs.mkdirSync(storagePath, { recursive: true });

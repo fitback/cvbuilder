@@ -10,6 +10,15 @@
     "dev:backend": "npm run start:dev -w packages/backend",
     "dev:frontend": "npm run dev -w packages/frontend",
     "db:migrate": "npm run db:migrate -w packages/backend",
-    "db:generate": "npm run db:generate -w packages/backend"
+    "db:generate": "npm run db:generate -w packages/backend",
+    "check:mvp": "npm run build -w packages/shared && npm run build -w packages/backend && npm run build -w packages/frontend && npx prisma validate --schema=packages/backend/prisma/schema.prisma",
+    "smoke": "bash scripts/smoke-test.sh"
+  },
+  "dependencies": {
+    "marked": "^18.0.4",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   }
 }

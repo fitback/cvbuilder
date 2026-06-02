@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Put, Param, Body, Delete, Req, UseInterceptors, UploadedFile, UseGuards } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { Throttle } from "@nestjs/throttler";
 import { ResumesService } from "./resumes.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -12,6 +13,7 @@ export class ResumesController {
   constructor(private readonly resumesService: ResumesService) {}
 
   @Post("upload")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
   async upload(@UploadedFile() file: Express.Multer.File, @Req() req: any): Promise<UploadResponse> {
     return this.resumesService.upload(file, req.userId);

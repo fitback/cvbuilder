@@ -12,8 +12,11 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const allowed = process.env.CORS_ORIGIN;
-      if (!origin || origin.startsWith("http://localhost")) return callback(null, true);
-      if (allowed && origin === allowed) return callback(null, true);
+      // Allow same-origin, localhost, ngrok tunnels, or explicit CORS_ORIGIN
+      if (!origin) return callback(null, true);
+      if (origin.startsWith("http://localhost") || origin.startsWith("https://localhost")) return callback(null, true);
+      if (origin.endsWith(".ngrok-free.dev") || origin.endsWith(".ngrok.io")) return callback(null, true);
+      if (allowed && (origin === allowed || allowed === "*")) return callback(null, true);
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,

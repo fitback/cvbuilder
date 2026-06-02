@@ -5,11 +5,23 @@ import { useRouter } from "next/navigation";
 import MDEditor from "@uiw/react-md-editor";
 import { GeneratedResumeDetail } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
+import { marked } from "marked";
 import { FileText, AlertCircle, RefreshCw, Check, Copy, Download } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
 
 const API = API_BASE;
+
+function renderPreviewHtml(md: string): string {
+  return (marked.parse(md) as string)
+    .replace(/<h1/g, '<h1 style="font-size:18pt;font-weight:700;margin-bottom:0.3cm"')
+    .replace(/<h2/g, '<h2 style="font-size:13pt;font-weight:600;margin-top:0.6cm;margin-bottom:0.2cm;border-bottom:1px solid #D4D4D4;padding-bottom:0.1cm"')
+    .replace(/<h3/g, '<h3 style="font-size:11pt;font-weight:600;margin-top:0.4cm;margin-bottom:0.15cm"')
+    .replace(/<p/g, '<p style="margin:0.15cm 0"')
+    .replace(/<ul/g, '<ul style="margin:0.1cm 0;padding-left:1.2em"')
+    .replace(/<li/g, '<li style="margin-bottom:0.08cm"')
+    .replace(/<strong/g, '<strong style="font-weight:600;color:#B75C3A"');
+}
 
 export default function GeneratedResumeEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -20,8 +32,12 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   useEffect(() => {
     apiFetch(`${API}/generated-resumes/${id}`)
@@ -31,6 +47,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           setRecord(json.data);
           setName(json.data.name);
           setContent(json.data.content);
+          setLastSaved(new Date(json.data.updatedAt));
         } else {
           setError(json.error?.message ?? "加载失败");
         }
@@ -38,6 +55,27 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
       .catch(() => setError("加载失败，请重试"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    if (!content || !record) return;
+    const timer = setInterval(async () => {
+      try {
+        const res = await apiFetch(`${API}/generated-resumes/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, content }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          setDraftSaved(true);
+          setLastSaved(new Date());
+          setTimeout(() => setDraftSaved(false), 2000);
+        }
+      } catch {}
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [id, content, name, record]);
 
   async function copyMarkdown() {
     await navigator.clipboard.writeText(content);
@@ -145,11 +183,16 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           <h2 className="text-xl font-semibold text-[#1A1A1A]">编辑简历</h2>
           <p className="text-sm text-[#6B6B6B] mt-1">
             创建于 {new Date(record.createdAt).toLocaleDateString("zh-CN")}
+            {draftSaved && <span className="ml-2 text-[#5B8C5A]">草稿已自动保存</span>}
+            {lastSaved && !draftSaved && <span className="ml-2 text-[#9E9E9E]">上次保存 {lastSaved.toLocaleTimeString("zh-CN")}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" icon={<Copy size={14} />} onClick={copyMarkdown}>
             复制
+          </Button>
+          <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={() => setShowPreview(true)}>
+            预览
           </Button>
           <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={exportPdf}>
             导出 PDF
@@ -186,6 +229,33 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           visibleDragbar={false}
         />
       </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowPreview(false)}>
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EBEBEB]">
+              <h3 className="text-lg font-semibold text-[#1A1A1A]">打印预览</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={() => { setShowPreview(false); exportPdf(); }}>
+                  导出 PDF
+                </Button>
+                <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={() => { setShowPreview(false); exportDocx(); }}>
+                  导出 DOCX
+                </Button>
+                <button onClick={() => setShowPreview(false)} className="text-[#9E9E9E] hover:text-[#2D2D2D] text-lg leading-none">&times;</button>
+              </div>
+            </div>
+            <div className="p-8 overflow-auto max-h-[calc(90vh-64px)] bg-white">
+              <div
+                className="mx-auto"
+                style={{ maxWidth: "21cm", fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans CN",sans-serif', fontSize: "10.5pt", lineHeight: "1.5", color: "#2D2D2D" }}
+                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(content) }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

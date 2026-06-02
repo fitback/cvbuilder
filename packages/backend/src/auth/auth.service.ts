@@ -27,10 +27,10 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.create({
-      data: { phone, passwordHash: bcrypt.hashSync(password, 10), points: 30 },
+      data: { phone, passwordHash: bcrypt.hashSync(password, 10), points: 50 },
     });
     await this.prisma.pointTransaction.create({
-      data: { userId: user.id, type: "credit", amount: 30, balance: 30, description: "新用户赠送" },
+      data: { userId: user.id, type: "credit", amount: 50, balance: 50, description: "新用户赠送" },
     });
     this.logger.log(`User registered: ${user.id} phone=${phone}`);
     const token = this.jwt.sign({ sub: user.id });

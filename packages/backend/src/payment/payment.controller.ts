@@ -7,11 +7,11 @@ import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import type { Response } from "express";
 
 @Controller("payment")
-@UseInterceptors(ApiResponseInterceptor)
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   @Get("qr-code")
+  @UseInterceptors(ApiResponseInterceptor)
   async getQrCodeInfo() {
     return this.paymentService.getQrCode();
   }
@@ -25,6 +25,7 @@ export class PaymentController {
   @Post("qr-code")
   @UseGuards(AuthGuard, AdminGuard)
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @UseInterceptors(ApiResponseInterceptor)
   async uploadQrCode(@UploadedFile() file: Express.Multer.File) {
     return this.paymentService.saveQrCode(file);
   }

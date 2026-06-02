@@ -64,8 +64,25 @@ const worker = new Worker("resume-parse", async (job: Job) => {
     const rawText = await extractText(resume.filePath, resume.fileType);
     await prisma.resume.update({ where: { id: resumeId }, data: { rawText } });
 
+    if (rawText.trim().length < 50) {
+      await prisma.resume.update({
+        where: { id: resumeId },
+        data: {
+          parseStatus: "failed",
+          parseResult: { error: "file_too_short", message: "文件内容过短，未能提取到有效文本。请确认文件为文本型PDF或Word格式。" },
+        },
+      });
+      return;
+    }
+
     if (rawText.trim().length < 200) {
-      await prisma.resume.update({ where: { id: resumeId }, data: { parseStatus: "failed" } });
+      await prisma.resume.update({
+        where: { id: resumeId },
+        data: {
+          parseStatus: "failed",
+          parseResult: { error: "text_low_quality", message: "提取文本偏少（不足200字符），建议使用Word格式重新上传或检查文件内容。" },
+        },
+      });
       return;
     }
 
@@ -74,8 +91,18 @@ const worker = new Worker("resume-parse", async (job: Job) => {
       where: { id: resumeId },
       data: { parseResult, parseStatus: "parsed" },
     });
-  } catch (err) {
-    await prisma.resume.update({ where: { id: resumeId }, data: { parseStatus: "failed" } });
+  } catch (err: any) {
+    const msg = err.message || "";
+    const errorType = msg.includes("DeepSeek") ? "ai_service_failed"
+      : msg.includes("pdfjs") || msg.includes("mammoth") ? "file_parse_error"
+      : "parse_error";
+    await prisma.resume.update({
+      where: { id: resumeId },
+      data: {
+        parseStatus: "failed",
+        parseResult: { error: errorType, message: `解析失败：${msg || "未知错误"}` },
+      },
+    });
     throw err;
   }
 }, {

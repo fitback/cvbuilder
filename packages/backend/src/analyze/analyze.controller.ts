@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Param, Query, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AnalyzeService } from "./analyze.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -11,6 +12,7 @@ export class AnalyzeController {
   constructor(private readonly analyzeService: AnalyzeService) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async analyze(@Body() body: AnalyzeRequest, @Req() req: any): Promise<AnalyzeResponse> {
     return this.analyzeService.analyze(body, req.userId);
   }
