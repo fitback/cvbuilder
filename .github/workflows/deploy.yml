@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_ci:
+        description: "跳过 CI 检查直接部署"
+        type: boolean
+        default: false
+
+jobs:
+  ci:
+    name: CI 检查
+    # workflow_dispatch 且勾选了跳过时，跳过 CI
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_ci) }}
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: 部署到阿里云 ECS
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [ci]
+    # CI 被跳过时（needs 为 skipped），仍然执行部署
+    if: ${{ always() && !failure() && !cancelled() }}
+
+    steps:
+      - name: 检查 SSH 密钥配置
+        run: |
+          if [ -z "${{ secrets.ECS_HOST }}" ]; then
+            echo "❌ 未配置 ECS_HOST secret，请在 GitHub → Settings → Secrets and variables → Actions 中添加"
+            exit 1
+          fi
+
+      - name: SSH 部署
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          port: ${{ secrets.ECS_PORT || 22 }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "=== 开始部署 $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+            cd /opt/cvbuilder
+
+            echo ">>> 拉取最新代码..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo ">>> 构建镜像并重启服务..."
+            docker compose -f docker-compose.prod.yml up -d --build
+
+            echo ">>> 清理旧镜像（释放磁盘空间）..."
+            docker image prune -a -f
+
+      - name: 健康检查
+        run: |
+          sleep 10
+          echo ">>> 检查服务健康状态..."
+          HEALTH_URL="http://${{ secrets.ECS_HOST }}/api/health"
+
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ 健康检查通过 ($HEALTH_URL → $STATUS)"
+              exit 0
+            fi
+            echo "⏳ 第 ${i}/12 次检查: HTTP $STATUS，等待 5 秒..."
+            sleep 5
+          done
+
+          echo "❌ 健康检查失败：12 次重试后后端仍无响应"
+          exit 1
+
+      - name: 部署总结
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🚀 部署成功完成！http://${{ secrets.ECS_HOST }}"
+          else
+            echo "❌ 部署失败，请检查 GitHub Actions 日志"
+          fi

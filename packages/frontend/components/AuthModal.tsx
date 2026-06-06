@@ -31,8 +31,9 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
         return;
       }
       setToken(json.data.token);
+      window.dispatchEvent(new Event("points-updated"));
       if (tab === "register") {
-        setGiftNotice("注册成功！已赠送 30 积分，快去试试 AI 分析吧");
+        setGiftNotice("注册成功！已赠送 50 积分");
         setTimeout(() => setGiftNotice(""), 4000);
       }
       onLogin(json.data.userId);

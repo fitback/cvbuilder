@@ -12,21 +12,26 @@ const API = API_BASE;
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
   const [generatedResumes, setGeneratedResumes] = useState<GeneratedResumeItem[]>([]);
+  const [jdCount, setJdCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   const fetchResumes = async () => {
     try {
-      const [res, genRes] = await Promise.all([
+      const [res, genRes, jds] = await Promise.all([
         apiFetch(`${API}/resumes`),
         apiFetch(`${API}/generated-resumes`),
+        apiFetch(`${API}/jobs`),
       ]);
       const json = await res.json();
       const genJson = await genRes.json();
+      const jdJson = await jds.json();
       setResumes(json.data ?? []);
       setGeneratedResumes(genJson.data ?? []);
+      setJdCount((jdJson.data ?? []).length);
     } catch {
       setError("加载失败，请刷新重试");
     } finally {
@@ -43,8 +48,12 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [resumes]);
 
-  const handleDelete = async (id: string, name: string) => {
-    setDeleting(id);
+  function confirmDelete(id: string, name: string) { setDeleteTarget({ id, name }); }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const { id, name } = deleteTarget;
+    setDeleting(id); setDeleteTarget(null);
     try {
       await apiFetch(`${API}/resumes/${id}`, { method: "DELETE" });
       toast(`已删除 "${name}"`, "success");
@@ -128,14 +137,18 @@ export default function DashboardPage() {
         <a href="/upload"><Button variant="primary" icon={<Upload size={16} />}>上传新简历</Button></a>
       </div>
 
-      {resumes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <FileText size={56} className="text-[#D4D4D4] mb-4" />
-          <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">还没有上传简历</h3>
-          <p className="text-sm text-[#6B6B6B] mb-6">上传你的第一份简历，AI 帮你匹配理想岗位</p>
-          <a href="/upload"><Button variant="primary" icon={<Upload size={14} />}>上传简历</Button></a>
-        </div>
+      {(resumes.length === 0 || jdCount === 0) ? (
+        <OnboardingGuide resumes={resumes.length} jds={jdCount} />
       ) : (
+        <div className="flex items-center gap-3 mb-4">
+          <a href={`/resumes/${resumes.find(r => r.parseStatus === "parsed")?.id ?? resumes[0]?.id}`}>
+            <Button variant="primary" size="sm" icon={<FileText size={14} />}>开始分析</Button>
+          </a>
+          <span className="text-xs text-[#9E9E9E]">已有简历和 JD，可以开始匹配分析</span>
+        </div>
+      )}
+
+      {resumes.length > 0 && (
         <div className="space-y-2">
           {resumes.map((r) => (
             <div key={r.id} className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg transition-all duration-200 ease-out hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px] active:scale-[0.995]">
@@ -155,7 +168,7 @@ export default function DashboardPage() {
                 {r.parseStatus === "parsed" && (
                   <a href={`/resumes/${r.id}`}><Button variant="secondary" size="sm" icon={<FileText size={14} />}>解析</Button></a>
                 )}
-                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} loading={deleting === r.id} onClick={() => handleDelete(r.id, r.fileNameOriginal ?? "未命名")} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" aria-label={`删除 ${r.fileNameOriginal}`}>删除</Button>
+                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} loading={deleting === r.id} onClick={() => confirmDelete(r.id, r.fileNameOriginal ?? "未命名")} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" aria-label={`删除 ${r.fileNameOriginal}`}>删除</Button>
               </div>
             </div>
           ))}
@@ -187,6 +200,78 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
+            <p className="text-sm text-[#6B6B6B] mb-6">确定要删除「{deleteTarget.name}」吗？此操作不可撤销。</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="danger" size="sm" icon={<Trash2 size={14} />} loading={deleting !== null} onClick={handleDelete}>确认删除</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OnboardingGuide({ resumes, jds }: { resumes: number; jds: number }) {
+  const step = resumes === 0 ? 1 : jds === 0 ? 2 : 3;
+
+  return (
+    <div className="bg-white border-2 border-dashed border-[#D4D4D4] rounded-2xl p-8 md:p-12 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-[#B75C3A]/10 flex items-center justify-center mx-auto mb-5">
+        <FileText size={32} className="text-[#B75C3A]" />
+      </div>
+
+      <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">
+        {step === 1 ? "开始优化你的简历" : "下一步：创建目标岗位"}
+      </h3>
+      <p className="text-sm text-[#6B6B6B] mb-8 max-w-md mx-auto">
+        {step === 1
+          ? "上传简历，AI 自动提取你的工作经历和技能"
+          : "粘贴目标岗位的 JD，AI 帮你分析匹配度并给出优化建议"}
+      </p>
+
+      {/* 3-step indicator */}
+      <div className="flex items-center justify-center gap-6 md:gap-10 mb-8">
+        <div className="flex flex-col items-center gap-2">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+            ${step > 1 ? "bg-[#5B8C5A] text-white" : "bg-[#B75C3A] text-white ring-4 ring-[#B75C3A]/20"}`}>
+            {step > 1 ? "✓" : "1"}
+          </div>
+          <span className="text-xs text-[#2D2D2D] font-medium">上传简历</span>
+        </div>
+
+        <div className="w-12 h-px bg-[#EBEBEB] self-start mt-5" />
+
+        <div className="flex flex-col items-center gap-2">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+            ${step > 2 ? "bg-[#5B8C5A] text-white"
+              : step === 2 ? "bg-[#B75C3A] text-white ring-4 ring-[#B75C3A]/20"
+              : "bg-[#F5F4F2] text-[#D4D4D4]"}`}>
+            {step > 2 ? "✓" : "2"}
+          </div>
+          <span className={`text-xs ${step >= 2 ? "text-[#2D2D2D] font-medium" : "text-[#9E9E9E]"}`}>创建岗位</span>
+        </div>
+
+        <div className="w-12 h-px bg-[#EBEBEB] self-start mt-5" />
+
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-[#F5F4F2] text-[#D4D4D4]">3</div>
+          <span className="text-xs text-[#9E9E9E]">开始分析</span>
+        </div>
+      </div>
+
+      {/* Primary CTA */}
+      <a href={step === 1 ? "/upload" : "/jobs"}>
+        <Button variant="primary" size="lg" icon={<Upload size={18} />}>
+          {step === 1 ? "上传第一份简历" : "创建目标岗位"}
+        </Button>
+      </a>
     </div>
   );
 }

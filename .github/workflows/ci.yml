@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+  workflow_call:
+
+jobs:
+  typecheck:
+    name: TypeScript 类型检查 + 构建验证
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建 shared 类型包
+        run: npm run build -w packages/shared
+
+      - name: 构建 backend（含类型检查）
+        run: npm run build -w packages/backend
+
+      - name: 验证 Prisma schema
+        run: npx prisma validate --schema=packages/backend/prisma/schema.prisma
+
+      - name: 生成 Prisma client
+        run: npm run db:generate -w packages/backend
+
+      - name: 构建 frontend（含类型检查）
+        run: npm run build -w packages/frontend
+
+  docker-check:
+    name: Docker 镜像构建验证
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [typecheck]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 验证 Dockerfile.backend 可构建
+        run: docker build -f Dockerfile.backend -t cvbuilder-backend:ci .
+
+      - name: 验证 Dockerfile.worker 可构建
+        run: docker build -f Dockerfile.worker -t cvbuilder-worker:ci .
+
+      - name: 验证 Dockerfile.frontend 可构建
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=/api \
+            -f Dockerfile.frontend \
+            -t cvbuilder-frontend:ci .

@@ -39,11 +39,11 @@ export default function LoginPage() {
         return;
       }
       setToken(json.data.token);
+      window.dispatchEvent(new Event("points-updated"));
       if (tab === "register") {
         setGiftNotice("注册成功！已赠送 50 积分");
         setTimeout(() => setGiftNotice(""), 4000);
       }
-      // Navigate to dashboard on success
       router.push("/dashboard");
     } catch {
       setError("网络错误，请重试");
@@ -59,28 +59,31 @@ export default function LoginPage() {
         <div className="md:w-1/2 bg-gradient-to-br from-[#B75C3A] to-[#9A4E31] p-8 md:p-12 flex flex-col justify-between text-white md:rounded-l-xl">
           <div>
             <h1 className="font-[family-name:var(--font-display)] text-2xl md:text-3xl font-bold mb-3 leading-tight">
-              ResumeMatcher
+              简历智造局
             </h1>
             <p className="text-white/80 text-sm md:text-base leading-relaxed mb-8">
-              AI 驱动的简历优化平台，帮你匹配理想岗位
+              AI 驱动的简历优化平台，从分析到导出，一站式搞定
             </p>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {[
-                { icon: Target, text: "AI 智能分析匹配度" },
-                { icon: Sparkles, text: "一键生成优化简历" },
-                { icon: FileText, text: "在线编辑 · PDF 导出" },
-                { icon: Download, text: "免费分析 3 次，无需信用卡" },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+                { icon: Target, text: "AI 把脉简历", sub: "从 5 个维度精准评估匹配度，知道差在哪才改得对" },
+                { icon: Sparkles, text: "一键生成优化简历", sub: "基于真实经历强化匹配项，拒绝编造，面试可追问" },
+                { icon: FileText, text: "在线编辑不折腾", sub: "分屏实时预览、自动保存、导出前先确认效果" },
+                { icon: Download, text: "PDF / DOCX 导出", sub: "专业排版即导即用，支持 Word 和 PDF 双格式" },
+              ].map(({ icon: Icon, text, sub }) => (
+                <div key={text} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0 mt-0.5">
                     <Icon size={16} className="text-white" />
                   </div>
-                  <span className="text-sm text-white/90">{text}</span>
+                  <div>
+                    <span className="text-sm font-medium text-white">{text}</span>
+                    <p className="text-xs text-white/65 mt-0.5 leading-relaxed">{sub}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-          <p className="text-xs text-white/50 mt-8">为求职者打造的智能简历工具</p>
+          <p className="text-xs text-white/50 mt-8">让每份简历都值得被看见</p>
         </div>
 
         {/* Right: Auth Form */}

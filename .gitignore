@@ -13,6 +13,7 @@ dist/
 *.pdf
 *.docx
 .env.local
+.env.prod
 *.rtf
 *.rvf
 *.rvf.lock

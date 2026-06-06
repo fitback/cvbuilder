@@ -18,6 +18,7 @@ export default function JobsPage() {
   const [company, setCompany] = useState("");
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
 
   async function fetchJobs() {
@@ -56,10 +57,13 @@ export default function JobsPage() {
     }
   }
 
-  async function handleDelete(id: string, jobTitle: string) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const { id, title } = deleteTarget;
+    setDeleteTarget(null);
     try {
       await apiFetch(`${API}/jobs/${id}`, { method: "DELETE", credentials: "include" });
-      toast(`已删除 "${jobTitle}"`, "success");
+      toast(`已删除 "${title}"`, "success");
       await fetchJobs();
     } catch {
       toast("删除失败", "error");
@@ -182,7 +186,7 @@ export default function JobsPage() {
                 variant="ghost"
                 size="sm"
                 icon={<Trash2 size={14} />}
-                onClick={() => handleDelete(j.id, j.title)}
+                onClick={() => setDeleteTarget({ id: j.id, title: j.title })}
                 className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 aria-label={`删除 ${j.title}`}
               >
@@ -190,6 +194,20 @@ export default function JobsPage() {
               </Button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
+            <p className="text-sm text-[#6B6B6B] mb-6">确定要删除 JD「{deleteTarget.title}」吗？此操作不可撤销。</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleDelete}>确认删除</Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
