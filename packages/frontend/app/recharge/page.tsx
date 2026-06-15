@@ -5,7 +5,6 @@ import { Button } from "../../components/Button";
 import { Coins, ChevronLeft, Check, AlertCircle } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { apiFetch, API_BASE } from "../../lib/auth";
-import QRCode from "qrcode";
 
 const API = API_BASE;
 
@@ -18,26 +17,18 @@ const PLANS = [
 export default function RechargePage() {
   const [selected, setSelected] = useState(20);
   const [step, setStep] = useState<"select" | "pay" | "done">("select");
-  const [codeUrl, setCodeUrl] = useState("");
-  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [paymentUrl, setPaymentUrl] = useState("");
   const [outTradeNo, setOutTradeNo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [credits, setCredits] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const payWindowRef = useRef<Window | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
-
-  useEffect(() => {
-    if (codeUrl) {
-      QRCode.toDataURL(codeUrl, { width: 220, margin: 1 })
-        .then(setQrDataUrl)
-        .catch(() => {});
-    }
-  }, [codeUrl]);
 
   async function createOrder(amount: number) {
     setLoading(true);
@@ -54,7 +45,7 @@ export default function RechargePage() {
         return;
       }
       const d = json.data;
-      setCodeUrl(d.codeUrl);
+      setPaymentUrl(d.paymentUrl || d.codeUrl);
       setOutTradeNo(d.outTradeNo);
       setCredits(d.points);
       setStep("pay");
@@ -65,6 +56,22 @@ export default function RechargePage() {
       setLoading(false);
     }
   }
+
+  function openPayment() {
+    if (payWindowRef.current && !payWindowRef.current.closed) {
+      payWindowRef.current.focus();
+      return;
+    }
+    payWindowRef.current = window.open(paymentUrl, "_blank");
+  }
+
+  useEffect(() => {
+    if (step === "pay" && paymentUrl) {
+      // 自动打开支付窗口
+      const timer = setTimeout(() => openPayment(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [step, paymentUrl]);
 
   function startPolling(tradeNo: string) {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -84,8 +91,7 @@ export default function RechargePage() {
 
   function reset() {
     setStep("select");
-    setCodeUrl("");
-    setQrDataUrl("");
+    setPaymentUrl("");
     setOutTradeNo("");
     setError("");
   }
@@ -99,20 +105,19 @@ export default function RechargePage() {
           </button>
         </div>
         <div className="bg-white border border-[#EBEBEB] rounded-xl p-6 text-center">
-          <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">支付宝扫码支付</h3>
-          <p className="text-sm text-[#6B6B6B] mb-6">请使用支付宝扫描二维码完成支付</p>
-          <div className="w-[220px] h-[220px] bg-white border-2 border-[#EBEBEB] rounded-xl mx-auto mb-4 flex items-center justify-center">
-            {qrDataUrl ? (
-              <img src={qrDataUrl} alt="支付宝支付二维码" className="w-[200px] h-[200px]" />
-            ) : (
-              <span className="text-sm text-[#9E9E9E]">生成中...</span>
-            )}
+          <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">支付宝网页支付</h3>
+          <p className="text-sm text-[#6B6B6B] mb-6">已为您打开支付宝支付页面，请在页面中完成支付</p>
+          <div className="w-16 h-16 rounded-full bg-[#B75C3A]/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-2 border-[#B75C3A] border-t-transparent rounded-full animate-spin" />
           </div>
           <p className="text-lg font-bold text-[#B75C3A] mb-2">
             ¥{PLANS.find(p => p.amount === selected)?.amount}
           </p>
-          <p className="text-xs text-[#9E9E9E]">支付完成后自动到账，无需等待审核</p>
-          <p className="text-xs text-[#6B6B6B] mt-2">订单号：{outTradeNo}</p>
+          <p className="text-xs text-[#9E9E9E] mb-4">支付完成后自动到账，无需等待审核</p>
+          <p className="text-xs text-[#6B6B6B] mb-4">订单号：{outTradeNo}</p>
+          <Button variant="secondary" size="sm" onClick={openPayment}>
+            重新打开支付页面
+          </Button>
         </div>
       </div>
     );
@@ -153,7 +158,7 @@ export default function RechargePage() {
       </div>
 
       <h2 className="text-xl font-semibold text-[#1A1A1A] mb-1">充值积分</h2>
-      <p className="text-sm text-[#6B6B6B] mb-6">选择充值金额，支付宝扫码支付后自动到账</p>
+      <p className="text-sm text-[#6B6B6B] mb-6">选择充值金额，跳转支付宝完成支付后自动到账</p>
 
       <div className="space-y-3 mb-6">
         {PLANS.map((plan) => (

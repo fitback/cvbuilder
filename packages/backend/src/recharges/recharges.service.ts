@@ -37,15 +37,15 @@ export class RechargesService {
       },
     });
 
-    const { codeUrl } = await this.alipay.createOrder(amount, outTradeNo);
+    const { paymentUrl } = await this.alipay.createOrder(amount, outTradeNo);
 
-    // Save code_url for display
+    // Save payment URL for display
     await this.prisma.rechargeRecord.updateMany({
       where: { outTradeNo },
-      data: { codeUrl },
+      data: { codeUrl: paymentUrl },
     });
 
-    return { outTradeNo, codeUrl, amount, points };
+    return { outTradeNo, codeUrl: paymentUrl, amount, points };
   }
 
   async handleNotify(postData: Record<string, string>) {

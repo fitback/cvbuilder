@@ -46,6 +46,7 @@ services:
       ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY}
       ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY}
       ALIPAY_NOTIFY_URL: ${ALIPAY_NOTIFY_URL}
+      ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL}
     volumes:
       - resume_data:/data/resumes
     depends_on:

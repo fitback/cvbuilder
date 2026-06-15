@@ -4,7 +4,7 @@ import { AlipaySdk } from "alipay-sdk";
 const PLANS = [10, 20, 50] as const;
 
 export interface CreateOrderResult {
-  codeUrl: string;
+  paymentUrl: string;
   outTradeNo: string;
 }
 
@@ -21,10 +21,12 @@ export class AlipayService {
   private sdk: AlipaySdk | null = null;
   private appId: string;
   private notifyUrl: string;
+  private returnUrl: string;
 
   constructor() {
     this.appId = process.env.ALIPAY_APP_ID || "";
     this.notifyUrl = process.env.ALIPAY_NOTIFY_URL || "";
+    this.returnUrl = process.env.ALIPAY_RETURN_URL || "";
     const privateKey = process.env.ALIPAY_PRIVATE_KEY || "";
     const alipayPublicKey = process.env.ALIPAY_PUBLIC_KEY || "";
 
@@ -57,24 +59,28 @@ export class AlipayService {
   async createOrder(amount: number, outTradeNo: string): Promise<CreateOrderResult> {
     if (!this.sdk) throw new Error("支付宝未配置");
 
-    const result = await this.sdk.exec("alipay.trade.precreate", {
-      method: "alipay.trade.precreate",
+    // 电脑网站支付：生成支付页面 HTML，提取跳转 URL
+    const formHtml = this.sdk.pageExec("alipay.trade.page.pay", {
       bizContent: {
         out_trade_no: outTradeNo,
         total_amount: amount.toFixed(2),
         subject: `ResumeMatcher 充值 ${amount} 元`,
-        timeout_express: "15m",
+        product_code: "FAST_INSTANT_TRADE_PAY",
       },
-      notifyUrl: this.notifyUrl,
+      returnUrl: this.returnUrl || undefined,
+      notifyUrl: this.notifyUrl || undefined,
     });
 
-    if (result.code === "10000" && result.qr_code) {
-      this.logger.log(`Alipay order created: outTradeNo=${outTradeNo} amount=${amount}`);
-      return { codeUrl: result.qr_code, outTradeNo };
+    // 从 form action 中提取支付 URL
+    const match = formHtml.match(/action="([^"]+)"/);
+    if (match) {
+      const paymentUrl = match[1].replace(/&amp;/g, "&");
+      this.logger.log(`Alipay page pay URL generated: outTradeNo=${outTradeNo} amount=${amount}`);
+      return { paymentUrl, outTradeNo };
     }
 
-    this.logger.error(`Alipay order failed: ${JSON.stringify(result)}`);
-    throw new Error(result.sub_msg || "创建支付订单失败");
+    this.logger.error(`Alipay page pay failed to generate URL`);
+    throw new Error("生成支付页面失败");
   }
 
   parseNotify(postData: Record<string, string>): NotifyResult | null {
