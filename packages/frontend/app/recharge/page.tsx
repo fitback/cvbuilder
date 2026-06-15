@@ -17,7 +17,7 @@ const PLANS = [
 export default function RechargePage() {
   const [selected, setSelected] = useState(20);
   const [step, setStep] = useState<"select" | "pay" | "done">("select");
-  const [paymentUrl, setPaymentUrl] = useState("");
+  const [paymentPage, setPaymentPage] = useState("");
   const [outTradeNo, setOutTradeNo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,7 +45,7 @@ export default function RechargePage() {
         return;
       }
       const d = json.data;
-      setPaymentUrl(d.paymentUrl || d.codeUrl);
+      setPaymentPage(d.codeUrl);
       setOutTradeNo(d.outTradeNo);
       setCredits(d.points);
       setStep("pay");
@@ -62,16 +62,21 @@ export default function RechargePage() {
       payWindowRef.current.focus();
       return;
     }
-    payWindowRef.current = window.open(paymentUrl, "_blank");
+    // 打开新窗口并写入支付宝支付表单 HTML，表单会自动提交
+    payWindowRef.current = window.open("", "_blank");
+    if (payWindowRef.current) {
+      payWindowRef.current.document.write(paymentPage);
+      payWindowRef.current.document.close();
+    }
   }
 
   useEffect(() => {
-    if (step === "pay" && paymentUrl) {
+    if (step === "pay" && paymentPage) {
       // 自动打开支付窗口
       const timer = setTimeout(() => openPayment(), 500);
       return () => clearTimeout(timer);
     }
-  }, [step, paymentUrl]);
+  }, [step, paymentPage]);
 
   function startPolling(tradeNo: string) {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -91,7 +96,7 @@ export default function RechargePage() {
 
   function reset() {
     setStep("select");
-    setPaymentUrl("");
+    setPaymentPage("");
     setOutTradeNo("");
     setError("");
   }

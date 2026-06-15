@@ -4,7 +4,7 @@ import { AlipaySdk } from "alipay-sdk";
 const PLANS = [10, 20, 50] as const;
 
 export interface CreateOrderResult {
-  paymentUrl: string;
+  paymentPage: string;
   outTradeNo: string;
 }
 
@@ -59,8 +59,8 @@ export class AlipayService {
   async createOrder(amount: number, outTradeNo: string): Promise<CreateOrderResult> {
     if (!this.sdk) throw new Error("支付宝未配置");
 
-    // 电脑网站支付：生成支付页面 HTML，提取跳转 URL
-    const formHtml = this.sdk.pageExec("alipay.trade.page.pay", {
+    // 电脑网站支付：生成带签名参数的完整 HTML 表单，前端打开后自动跳转
+    const paymentPage = this.sdk.pageExec("alipay.trade.page.pay", {
       bizContent: {
         out_trade_no: outTradeNo,
         total_amount: amount.toFixed(2),
@@ -71,16 +71,8 @@ export class AlipayService {
       notifyUrl: this.notifyUrl || undefined,
     });
 
-    // 从 form action 中提取支付 URL
-    const match = formHtml.match(/action="([^"]+)"/);
-    if (match) {
-      const paymentUrl = match[1].replace(/&amp;/g, "&");
-      this.logger.log(`Alipay page pay URL generated: outTradeNo=${outTradeNo} amount=${amount}`);
-      return { paymentUrl, outTradeNo };
-    }
-
-    this.logger.error(`Alipay page pay failed to generate URL`);
-    throw new Error("生成支付页面失败");
+    this.logger.log(`Alipay page pay generated: outTradeNo=${outTradeNo} amount=${amount}`);
+    return { paymentPage, outTradeNo };
   }
 
   parseNotify(postData: Record<string, string>): NotifyResult | null {
