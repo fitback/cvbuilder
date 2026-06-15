@@ -27,8 +27,8 @@ export class AlipayService {
     this.appId = process.env.ALIPAY_APP_ID || "";
     this.notifyUrl = process.env.ALIPAY_NOTIFY_URL || "";
     this.returnUrl = process.env.ALIPAY_RETURN_URL || "";
-    const privateKey = process.env.ALIPAY_PRIVATE_KEY || "";
-    const alipayPublicKey = process.env.ALIPAY_PUBLIC_KEY || "";
+    const privateKey = (process.env.ALIPAY_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+    const alipayPublicKey = (process.env.ALIPAY_PUBLIC_KEY || "").replace(/\\n/g, "\n");
 
     if (this.appId && privateKey && alipayPublicKey) {
       try {
