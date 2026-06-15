@@ -62,12 +62,8 @@ export default function RechargePage() {
       payWindowRef.current.focus();
       return;
     }
-    // 打开新窗口并写入支付宝支付表单 HTML，表单会自动提交
-    payWindowRef.current = window.open("", "_blank");
-    if (payWindowRef.current) {
-      payWindowRef.current.document.write(paymentPage);
-      payWindowRef.current.document.close();
-    }
+    // 直接打开支付宝支付 URL
+    payWindowRef.current = window.open(paymentPage, "_blank");
   }
 
   useEffect(() => {
