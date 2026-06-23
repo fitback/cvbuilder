@@ -7,10 +7,14 @@ export function getToken(): string | null {
 
 export function setToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
+  // 同时写入 cookie，供 middleware 做服务端路由保护
+  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
 }
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
+  // 清除 cookie
+  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
 }
 
 export function isLoggedIn(): boolean {
