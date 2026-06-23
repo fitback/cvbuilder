@@ -32,9 +32,13 @@ jobs:
 
       - name: 验证 Prisma schema
         run: npx prisma validate --schema=packages/backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
       - name: 生成 Prisma client
         run: npm run db:generate -w packages/backend
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
       - name: 构建 frontend（含类型检查）
         run: npm run build -w packages/frontend
