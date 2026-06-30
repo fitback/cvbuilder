@@ -14,7 +14,7 @@ function buildHtml(markdown: string): string {
 <style>
   @page { size: A4; margin: 2.5cm; }
   body {
-    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans CN", sans-serif;
+    font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", "Source Han Sans CN", sans-serif;
     font-size: 10.5pt;
     line-height: 1.5;
     color: #2D2D2D;

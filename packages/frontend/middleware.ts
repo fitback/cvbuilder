@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/", "/privacy"]);
+const PUBLIC_PATHS = new Set(["/", "/privacy", "/terms"]);
 
 // 不拦截静态资源、API 代理和内部 Next.js 路由
 const INTERNAL_PREFIX = /^\/(_next|api|favicon)/;

@@ -14,9 +14,14 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [giftNotice, setGiftNotice] = useState("");
+  const [agreed, setAgreed] = useState(false);
 
   async function submit() {
     setError("");
+    if (tab === "register" && !agreed) {
+      setError("请先阅读并同意服务协议");
+      return;
+    }
     setLoading(true);
     try {
       const endpoint = tab === "login" ? "login" : "register";
@@ -115,6 +120,23 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
             />
           </div>
 
+          {tab === "register" && (
+            <label className="flex items-start gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-0.5 accent-[#B75C3A]"
+              />
+              <span className="text-xs text-[#6B6B6B] leading-relaxed">
+                我已阅读并同意
+                <a href="/terms" target="_blank" className="text-[#B75C3A] hover:underline mx-1">《用户服务协议》</a>
+                和
+                <a href="/privacy" target="_blank" className="text-[#B75C3A] hover:underline ml-1">《隐私政策》</a>
+              </span>
+            </label>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg">
               <AlertCircle size={16} className="shrink-0 text-[#C75B5B]" />
@@ -127,7 +149,7 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
             size="lg"
             className="w-full"
             loading={loading}
-            disabled={!phone || !password}
+            disabled={!phone || !password || (tab === "register" && !agreed)}
             onClick={submit}
           >
             {tab === "login" ? "登录" : "注册"}
