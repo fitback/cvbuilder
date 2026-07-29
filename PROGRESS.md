@@ -1,7 +1,7 @@
 # ResumeMatcher 项目进展
 
-> 最后更新：2026-06-25
-> 当前版本：v0.5.1
+> 最后更新：2026-07-29
+> 当前版本：v0.5.2
 
 ---
 
@@ -12,7 +12,7 @@
 | 核心功能 | ✅ 可用 |
 | 生产构建 | ✅ 三包通过 |
 | 部署方案 | ✅ CI/CD 完成，服务器已关联 |
-| 安全加固 | ✅ 已完成（v0.5.1 增加前端路由保护） |
+| 安全加固 | ✅ 已完成（v0.5.2 缓存 + 防爬虫 + 防 DDoS） |
 | UI/UX 体验 | ✅ 已优化 |
 | 新用户引导 | ✅ 仪表盘 3 步流程 |
 | 分析页交互 | ✅ 信息层级重组 + 可操作清单 |
@@ -36,6 +36,7 @@
 | v0.4.2 | 2026-06-06 | CI/CD 流水线、GitHub Actions 手动部署、服务器 git 同步 |
 | v0.5.0 | 2026-06-15 | 支付宝电脑网站支付、域名备案、HTTPS 全站部署 |
 | v0.5.1 | 2026-06-25 | 修复严重安全漏洞（未登录可访问受保护页面）+ CORS 多源支持 |
+| v0.5.2 | 2026-07-29 | 安全加固：缓存体系 + 防爬虫（Turnstile）+ 防 DDoS（nginx 限流/helmet/ValidationPipe） |
 
 ### v0.4.1 详细变更
 
@@ -271,6 +272,42 @@ Worker (BullMQ) → 简历解析队列
 ---
 
 **下一步建议**：
-1. 推进部署上线（买服务器、备案、配置生产环境）← 最优先
-2. 继续完善功能（密码找回、支付测试）
-3. 打磨细节（更多 UX 优化、性能调优）
+1. ~~推进部署上线（买服务器、备案、配置生产环境）~~ ← 已完成
+2. 安全加固：缓存 + 防爬虫 + 防 DDoS（v0.5.2）← 当前工作
+3. 继续完善功能（密码找回、支付测试）
+4. 打磨细节（更多 UX 优化、性能调优）
+
+---
+
+## 八、安全加固：缓存 + 防爬虫 + 防 DDoS
+
+> 设计文档：[docs/superpowers/specs/2026-07-29-security-hardening-design.md](docs/superpowers/specs/2026-07-29-security-hardening-design.md)
+> 启动日期：2026-07-29
+> 策略：小项目低成本方案（nginx + 应用层自建，无外部付费服务）
+> 三层防线：nginx（限流/缓存/连接控制）→ NestJS 全局（安全头/校验/用户维度限流）→ 路由级（Turnstile/Redis 缓存/BullMQ 限流）
+
+### 实施清单
+
+| 序号 | 批次 | 模块 | 事项 | 状态 |
+|------|------|------|------|------|
+| 1.1 | 1 | nginx | limit_req + limit_conn + body/client 超时 | ✅ |
+| 1.2 | 1 | nginx | proxy_cache GET 请求 5s 缓存 | ✅ |
+| 1.3 | 1 | nginx | /api/auth/ 单独限流 (3r/m) | ✅ |
+| 2.1 | 1 | 应用层 | helmet 安全头 | ✅ |
+| 2.2 | 1 | 应用层 | 全局 ValidationPipe | ✅ |
+| 2.3 | 2 | 应用层 | 补 DTO 校验（LoginDto, AnalyzeDto, GenerateDto, ExportDto, CreateJobDto, RechargeOrderDto） | ✅ |
+| 3.1 | 2 | 限流 | UserAwareThrottlerGuard（登录用户按 userId 限流） | ✅ |
+| 3.2 | 2 | 限流 | 未限流接口补 @Throttle（export/pdf, DELETE 等） | ✅ |
+| 4.1 | 3 | 缓存 | Redis CacheService（getOrSet + del） | ✅ |
+| 4.2 | 3 | 缓存 | 热点接口接入缓存（jobs, analyze/saved, points/balance, resumes） | ✅ |
+| 5.1 | 3 | 防爬虫 | Cloudflare Turnstile 前端接入（登录 + 注册） | ✅ |
+| 5.2 | 3 | 防爬虫 | Turnstile 后端验证逻辑 | ✅ |
+| 6.1 | 2 | 队列 | BullMQ limiter（max: 5/min） | ✅ |
+
+### 变更记录
+
+| 日期 | 变更 |
+|------|------|
+| 2026-07-29 | 全部 13 项实施完成 |
+| 2026-07-29 | 修复 proxy_no_cache 导致的所有缓存失效 Bug |
+| 2026-07-29 | 修复 analyze.service.ts 中 cache.del 在 try/catch 内导致的积分误退 Bug |
