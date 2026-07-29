@@ -14,16 +14,25 @@ export class AuthService {
   ) {}
 
   private async verifyTurnstile(token: string): Promise<boolean> {
-    const resp = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `secret=${encodeURIComponent(process.env.TURNSTILE_SECRET_KEY || "")}&response=${encodeURIComponent(token)}`,
-      }
-    );
-    const data = (await resp.json()) as { success?: boolean };
-    return data.success === true;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `secret=${encodeURIComponent(process.env.TURNSTILE_SECRET_KEY || "")}&response=${encodeURIComponent(token)}`,
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeout);
+      const data = (await resp.json()) as { success?: boolean };
+      return data.success === true;
+    } catch {
+      this.logger.warn("Turnstile verification request failed");
+      return false;
+    }
   }
 
   async register(phone: string, password: string, turnstileToken: string) {

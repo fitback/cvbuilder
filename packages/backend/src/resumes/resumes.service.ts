@@ -143,6 +143,7 @@ export class ResumesService {
 
     if (Object.keys(data).length > 0) {
       await this.prisma.resume.update({ where: { id }, data });
+      await this.cache.del(`cache:resumes:list:${userId}`);
     }
 
     const updated = await this.prisma.resume.findUnique({
