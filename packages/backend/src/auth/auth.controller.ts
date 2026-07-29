@@ -13,13 +13,13 @@ export class AuthController {
   @Post("register")
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async register(@Body() body: RegisterDto) {
-    return this.authService.register(body.phone, body.password);
+    return this.authService.register(body.phone, body.password, body.turnstileToken);
   }
 
   @Post("login")
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async login(@Body() body: LoginDto) {
-    return this.authService.login(body.phone, body.password);
+    return this.authService.login(body.phone, body.password, body.turnstileToken);
   }
 
   @Get("me")

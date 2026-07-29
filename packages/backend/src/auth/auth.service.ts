@@ -13,12 +13,29 @@ export class AuthService {
     private jwt: JwtService,
   ) {}
 
-  async register(phone: string, password: string) {
+  private async verifyTurnstile(token: string): Promise<boolean> {
+    const resp = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `secret=${encodeURIComponent(process.env.TURNSTILE_SECRET_KEY || "")}&response=${encodeURIComponent(token)}`,
+      }
+    );
+    const data = (await resp.json()) as { success?: boolean };
+    return data.success === true;
+  }
+
+  async register(phone: string, password: string, turnstileToken: string) {
     if (!/^1[3-9]\d{9}$/.test(phone)) {
       throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "手机号格式不正确" }, 400);
     }
     if (password.length < 6) {
       throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "密码最少6位" }, 400);
+    }
+
+    if (!(await this.verifyTurnstile(turnstileToken))) {
+      throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "安全验证失败，请重试" }, 400);
     }
 
     const existing = await this.prisma.user.findUnique({ where: { phone } });
@@ -37,7 +54,11 @@ export class AuthService {
     return { userId: user.id, token };
   }
 
-  async login(phone: string, password: string) {
+  async login(phone: string, password: string, turnstileToken: string) {
+    if (!(await this.verifyTurnstile(turnstileToken))) {
+      throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "安全验证失败，请重试" }, 400);
+    }
+
     const user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
       this.logger.warn(`Login failed: phone=${phone}`);
