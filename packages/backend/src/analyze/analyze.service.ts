@@ -1,6 +1,7 @@
 import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PointsService } from "../points/points.service";
+import { CacheService } from "../common/cache/cache.service";
 import { AnalyzeRequest, AnalyzeResponse, AnalysisHistoryItem, AnalysisDetail, ErrorCode } from "@cvbuilder/shared";
 import { CircuitBreaker } from "./circuit-breaker";
 import { readFileSync } from "fs";
@@ -43,6 +44,7 @@ export class AnalyzeService {
   constructor(
     private prisma: PrismaService,
     private points: PointsService,
+    private cache: CacheService,
   ) {}
 
   async analyze(body: AnalyzeRequest, userId: string): Promise<AnalyzeResponse> {
@@ -97,6 +99,8 @@ export class AnalyzeService {
         },
         update: { analysisResult, matchScore: analysisResult.matchScore },
       });
+
+      await this.cache.del(`cache:analyze:list:${userId}`);
 
       return {
         analysisRecordId: record.id,

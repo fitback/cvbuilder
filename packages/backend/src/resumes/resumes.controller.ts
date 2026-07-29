@@ -4,13 +4,17 @@ import { Throttle } from "@nestjs/throttler";
 import { ResumesService } from "./resumes.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
+import { CacheService } from "../common/cache/cache.service";
 import { UploadResponse, ResumeItem, ResumeDetail } from "@cvbuilder/shared";
 
 @Controller("resumes")
 @UseGuards(AuthGuard)
 @UseInterceptors(ApiResponseInterceptor)
 export class ResumesController {
-  constructor(private readonly resumesService: ResumesService) {}
+  constructor(
+    private readonly resumesService: ResumesService,
+    private readonly cache: CacheService,
+  ) {}
 
   @Post("upload")
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -21,7 +25,9 @@ export class ResumesController {
 
   @Get()
   async list(@Req() req: any): Promise<ResumeItem[]> {
-    return this.resumesService.list(req.userId);
+    return this.cache.getOrSet(`cache:resumes:list:${req.userId}`, 10, () =>
+      this.resumesService.list(req.userId)
+    );
   }
 
   @Get(":id")

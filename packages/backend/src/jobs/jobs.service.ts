@@ -1,10 +1,14 @@
 import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CacheService } from "../common/cache/cache.service";
 import { CreateJobRequest, CreateJobResponse, JobDescriptionItem, ErrorCode } from "@cvbuilder/shared";
 
 @Injectable()
 export class JobsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: CacheService,
+  ) {}
 
   async create(body: CreateJobRequest, userId: string): Promise<CreateJobResponse> {
     if (!body.title?.trim()) throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "职位名称不能为空" }, 400);
@@ -13,6 +17,7 @@ export class JobsService {
     const jd = await this.prisma.jobDescription.create({
       data: { userId, title: body.title, company: body.company, content: body.content },
     });
+    await this.cache.del(`cache:jobs:list:${userId}`);
     return { jobDescriptionId: jd.id };
   }
 
@@ -39,6 +44,8 @@ export class JobsService {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "JD不存在" }, 404);
     }
     await this.prisma.jobDescription.delete({ where: { id } });
+    await this.cache.del(`cache:jobs:list:${userId}`);
+    await this.cache.del(`cache:jobs:${id}`);
     return { success: true };
   }
 }

@@ -1,10 +1,14 @@
 import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CacheService } from "../common/cache/cache.service";
 import { ErrorCode } from "@cvbuilder/shared";
 
 @Injectable()
 export class PointsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: CacheService,
+  ) {}
 
   async deduct(userId: string, amount: number, description: string, referenceId?: string): Promise<number> {
     const result = await this.prisma.user.updateMany({
@@ -25,6 +29,8 @@ export class PointsService {
       data: { userId, type: "debit", amount, balance: user.points, description, referenceId },
     });
 
+    await this.cache.del(`cache:points:${userId}`);
+
     return user.points;
   }
 
@@ -38,6 +44,8 @@ export class PointsService {
       data: { userId, type: "credit", amount, balance: user.points, description, referenceId },
     });
 
+    await this.cache.del(`cache:points:${userId}`);
+
     return user.points;
   }
 
@@ -50,6 +58,8 @@ export class PointsService {
     await this.prisma.pointTransaction.create({
       data: { userId, type: "refund", amount, balance: user.points, description, referenceId },
     });
+
+    await this.cache.del(`cache:points:${userId}`);
 
     return user.points;
   }

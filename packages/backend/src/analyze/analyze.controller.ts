@@ -3,13 +3,17 @@ import { Throttle } from "@nestjs/throttler";
 import { AnalyzeService } from "./analyze.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
+import { CacheService } from "../common/cache/cache.service";
 import { AnalyzeRequest, AnalyzeResponse, AnalysisHistoryItem, AnalysisDetail } from "@cvbuilder/shared";
 
 @Controller("analyze")
 @UseGuards(AuthGuard)
 @UseInterceptors(ApiResponseInterceptor)
 export class AnalyzeController {
-  constructor(private readonly analyzeService: AnalyzeService) {}
+  constructor(
+    private readonly analyzeService: AnalyzeService,
+    private readonly cache: CacheService,
+  ) {}
 
   @Post()
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -19,7 +23,9 @@ export class AnalyzeController {
 
   @Get("saved")
   async listSaved(@Req() req: any) {
-    return this.analyzeService.listSaved(req.userId);
+    return this.cache.getOrSet(`cache:analyze:list:${req.userId}`, 30, () =>
+      this.analyzeService.listSaved(req.userId)
+    );
   }
 
   @Get()

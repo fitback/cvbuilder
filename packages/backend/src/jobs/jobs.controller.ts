@@ -3,6 +3,7 @@ import { Throttle } from "@nestjs/throttler";
 import { JobsService } from "./jobs.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
+import { CacheService } from "../common/cache/cache.service";
 import { CreateJobResponse, JobDescriptionItem } from "@cvbuilder/shared";
 import { CreateJobDto } from "./dto/create-job.dto";
 
@@ -10,7 +11,10 @@ import { CreateJobDto } from "./dto/create-job.dto";
 @UseGuards(AuthGuard)
 @UseInterceptors(ApiResponseInterceptor)
 export class JobsController {
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly cache: CacheService,
+  ) {}
 
   @Post()
   async create(@Body() body: CreateJobDto, @Req() req: any): Promise<CreateJobResponse> {
@@ -19,12 +23,16 @@ export class JobsController {
 
   @Get()
   async list(@Req() req: any): Promise<JobDescriptionItem[]> {
-    return this.jobsService.list(req.userId);
+    return this.cache.getOrSet(`cache:jobs:list:${req.userId}`, 30, () =>
+      this.jobsService.list(req.userId)
+    );
   }
 
   @Get(":id")
   async detail(@Param("id") id: string, @Req() req: any) {
-    return this.jobsService.detail(id, req.userId);
+    return this.cache.getOrSet(`cache:jobs:${id}`, 60, () =>
+      this.jobsService.detail(id, req.userId)
+    );
   }
 
   @Delete(":id")

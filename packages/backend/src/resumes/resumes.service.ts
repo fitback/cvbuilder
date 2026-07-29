@@ -1,10 +1,10 @@
-import { Injectable, HttpException } from "@nestjs/common";
+import { Injectable, HttpException, Inject } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CacheService } from "../common/cache/cache.service";
 import { UploadResponse, ErrorCode, ResumeItem, ResumeDetail } from "@cvbuilder/shared";
 import { v4 as uuid } from "uuid";
 import * as fs from "fs";
 import * as path from "path";
-import { Inject } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { PARSE_QUEUE } from "./parse-queue.provider";
 
@@ -17,6 +17,7 @@ const ALLOWED_TYPES: Record<string, "pdf" | "docx"> = {
 export class ResumesService {
   constructor(
     private prisma: PrismaService,
+    private cache: CacheService,
     @Inject(PARSE_QUEUE) private parseQueue: Queue,
   ) {}
 
@@ -72,6 +73,8 @@ export class ResumesService {
       attempts: 3,
       backoff: { type: "exponential", delay: 2000 },
     });
+
+    await this.cache.del(`cache:resumes:list:${userId}`);
 
     return {
       resumeId: resume.id,
@@ -168,6 +171,7 @@ export class ResumesService {
     }
     try { fs.unlinkSync(resume.filePath); } catch (_) {}
     await this.prisma.resume.delete({ where: { id } });
+    await this.cache.del(`cache:resumes:list:${userId}`);
     return { success: true };
   }
 }
