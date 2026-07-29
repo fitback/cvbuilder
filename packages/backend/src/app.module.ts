@@ -14,6 +14,7 @@ import { RechargesModule } from "./recharges/recharges.module";
 import { GeneratedResumesModule } from "./generated-resumes/generated-resumes.module";
 import { PaymentModule } from "./payment/payment.module";
 import { HealthModule } from "./health/health.module";
+import { CacheModule } from "./common/cache/cache.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { HealthModule } from "./health/health.module";
       ttl: 60000,
       limit: 60,
     }]),
+    CacheModule,
     PrismaModule, AuthModule, ResumesModule, JobsModule,
     AnalyzeModule, GenerateModule, ExportModule,
     PointsModule, RechargesModule, GeneratedResumesModule, PaymentModule,
