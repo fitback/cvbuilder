@@ -2,6 +2,7 @@ import { Controller, Post, Body, Res, UseGuards } from "@nestjs/common";
 import { Response } from "express";
 import { ExportService } from "./export.service";
 import { AuthGuard } from "../auth/auth.guard";
+import { ExportDto } from "./dto/export.dto";
 
 @Controller("export")
 @UseGuards(AuthGuard)
@@ -9,7 +10,7 @@ export class ExportController {
   constructor(private readonly exportService: ExportService) {}
 
   @Post("pdf")
-  async exportPdf(@Body() body: { markdown: string }, @Res() res: Response) {
+  async exportPdf(@Body() body: ExportDto, @Res() res: Response) {
     const pdf = await this.exportService.exportPdf(body.markdown);
     res.set({
       "Content-Type": "application/pdf",
@@ -20,7 +21,7 @@ export class ExportController {
   }
 
   @Post("docx")
-  async exportDocx(@Body() body: { markdown: string }, @Res() res: Response) {
+  async exportDocx(@Body() body: ExportDto, @Res() res: Response) {
     const docx = await this.exportService.exportDocx(body.markdown);
     res.set({
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

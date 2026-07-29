@@ -2,7 +2,8 @@ import { Controller, Post, Get, Delete, Param, Body, Req, UseGuards, UseIntercep
 import { JobsService } from "./jobs.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
-import { CreateJobRequest, CreateJobResponse, JobDescriptionItem } from "@cvbuilder/shared";
+import { CreateJobResponse, JobDescriptionItem } from "@cvbuilder/shared";
+import { CreateJobDto } from "./dto/create-job.dto";
 
 @Controller("jobs")
 @UseGuards(AuthGuard)
@@ -11,7 +12,7 @@ export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
   @Post()
-  async create(@Body() body: CreateJobRequest, @Req() req: any): Promise<CreateJobResponse> {
+  async create(@Body() body: CreateJobDto, @Req() req: any): Promise<CreateJobResponse> {
     return this.jobsService.create(body, req.userId);
   }
 

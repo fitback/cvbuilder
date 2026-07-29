@@ -1,11 +1,9 @@
-import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors, HttpException } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { RechargesService } from "./recharges.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
-import { ErrorCode } from "@cvbuilder/shared";
-
-const ALLOWED_PLANS = [10, 20, 50];
+import { RechargeOrderDto } from "./dto/recharge-order.dto";
 
 @Controller("recharges")
 @UseInterceptors(ApiResponseInterceptor)
@@ -14,10 +12,7 @@ export class RechargesController {
 
   @Post("orders")
   @UseGuards(AuthGuard)
-  async createOrder(@Body() body: { amount: number }, @Req() req: any) {
-    if (!ALLOWED_PLANS.includes(body.amount)) {
-      throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "无效的充值金额" }, 400);
-    }
+  async createOrder(@Body() body: RechargeOrderDto, @Req() req: any) {
     return this.rechargesService.createOrder(req.userId, body.amount);
   }
 
