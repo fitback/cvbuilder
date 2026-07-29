@@ -100,7 +100,10 @@ export class AnalyzeService {
         update: { analysisResult, matchScore: analysisResult.matchScore },
       });
 
-      await this.cache.del(`cache:analyze:list:${userId}`);
+      // Invalidate cache outside try/catch — cache failure shouldn't trigger AI error refund
+      try {
+        await this.cache.del(`cache:analyze:list:${userId}`);
+      } catch { /* cache layer failure is non-critical */ }
 
       return {
         analysisRecordId: record.id,
