@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "../components/Button";
 import { User, Sparkles, AlertCircle, Target, FileText, Download } from "../components/icons";
 import { setToken, isLoggedIn, API_BASE } from "../lib/auth";
+import Turnstile from "react-turnstile";
 import { getErrorMessage } from "../lib/error-codes";
 import { useEffect } from "react";
 
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [giftNotice, setGiftNotice] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
     if (isLoggedIn()) router.replace("/dashboard");
@@ -36,7 +38,7 @@ export default function LoginPage() {
       const res = await fetch(`${API}/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ phone, password, turnstileToken }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -172,12 +174,19 @@ export default function LoginPage() {
                 </div>
               )}
 
+              <Turnstile
+                sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+                onVerify={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                theme="light"
+              />
+
               <Button
                 variant="primary"
                 size="lg"
                 className="w-full"
                 loading={loading}
-                disabled={!phone || !password || (tab === "register" && !agreed)}
+                disabled={!phone || !password || !turnstileToken || (tab === "register" && !agreed)}
                 onClick={submit}
               >
                 {tab === "login" ? "登录" : "注册"}
