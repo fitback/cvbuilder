@@ -108,6 +108,7 @@ const worker = new Worker("resume-parse", async (job: Job) => {
 }, {
   connection: { url: process.env.REDIS_URL || "redis://localhost:6379" },
   concurrency: 2,
+  limiter: { max: 5, duration: 60000 },
 });
 
 console.log("Parse worker started");
