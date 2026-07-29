@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Res, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { ExportService } from "./export.service";
 import { AuthGuard } from "../auth/auth.guard";
@@ -10,6 +11,7 @@ export class ExportController {
   constructor(private readonly exportService: ExportService) {}
 
   @Post("pdf")
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportPdf(@Body() body: ExportDto, @Res() res: Response) {
     const pdf = await this.exportService.exportPdf(body.markdown);
     res.set({
@@ -21,6 +23,7 @@ export class ExportController {
   }
 
   @Post("docx")
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportDocx(@Body() body: ExportDto, @Res() res: Response) {
     const docx = await this.exportService.exportDocx(body.markdown);
     res.set({

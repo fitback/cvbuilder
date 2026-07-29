@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, Param, Body, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { JobsService } from "./jobs.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -27,6 +28,7 @@ export class JobsController {
   }
 
   @Delete(":id")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async delete(@Param("id") id: string, @Req() req: any): Promise<{ success: true }> {
     return this.jobsService.delete(id, req.userId);
   }

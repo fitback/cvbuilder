@@ -39,6 +39,7 @@ export class ResumesController {
   }
 
   @Delete(":id")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async delete(@Param("id") id: string, @Req() req: any): Promise<{ success: true }> {
     return this.resumesService.delete(id, req.userId);
   }

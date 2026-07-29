@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Param, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { RechargesService } from "./recharges.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
@@ -18,6 +19,7 @@ export class RechargesController {
 
   // Alipay callback (public, no auth, x-www-form-urlencoded)
   @Post("notify")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async notify(@Body() body: Record<string, string>) {
     return this.rechargesService.handleNotify(body);
   }
