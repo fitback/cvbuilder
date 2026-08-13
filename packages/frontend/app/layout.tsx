@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "../components/Button";
 import AuthModal from "../components/AuthModal";
@@ -111,7 +112,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {allNavItems.map(({ href, label, icon: Icon }) => {
                   const active = isActive(href);
                   return (
-                    <a
+                    <Link
                       key={href}
                       href={href}
                       className={`flex items-center gap-2.5 pl-[9px] pr-3 py-2.5 rounded-r-lg text-sm
@@ -127,7 +128,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     >
                       <Icon size={18} />
                       {label}
-                    </a>
+                    </Link>
                   );
                 })}
               </nav>
@@ -166,7 +167,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {allNavItems.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
               return (
-                <a
+                <Link
                   key={href}
                   href={href}
                   className={`flex flex-col items-center gap-0.5 px-3 pt-[4px] pb-1.5 min-w-[56px] text-xs
@@ -178,7 +179,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 >
                   <Icon size={20} />
                   <span className="leading-tight">{label}</span>
-                </a>
+                </Link>
               );
             })}
             {userPhone ? (
