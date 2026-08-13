@@ -189,6 +189,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </button>
             )}
           </nav>
+
+          <footer className="py-3 text-center text-xs text-[#9E9E9E]">
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#6B6B6B] transition-colors duration-150"
+            >
+              沪ICP备2026028917号-1
+            </a>
+          </footer>
         </ToastProvider>
       </body>
     </html>
