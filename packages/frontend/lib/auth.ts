@@ -35,7 +35,17 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   }
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  return fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers });
+
+  // 会话过期（token 无效）：清除本地 token，通知 layout 跳转登录页
+  if (res.status === 401 && token) {
+    clearToken();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("auth-expired"));
+    }
+  }
+
+  return res;
 }
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
