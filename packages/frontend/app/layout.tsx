@@ -57,6 +57,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     }
   }, [loggedIn]);
 
+  // 会话过期（apiFetch 收到 401 后触发）：清空用户信息，路由守卫自动跳转登录页
+  useEffect(() => {
+    const handler = () => {
+      setUserPhone("");
+      setUserRole("");
+    };
+    window.addEventListener("auth-expired", handler);
+    return () => window.removeEventListener("auth-expired", handler);
+  }, []);
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (

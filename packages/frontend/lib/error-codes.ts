@@ -16,12 +16,13 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getErrorMessage(json: any): string {
+  // 后端返回的具体提示优先（如"该手机号已注册"），映射表兜底
+  if (json?.error?.message) {
+    return json.error.message;
+  }
   const code = json?.error?.code;
   if (code && ERROR_MESSAGES[code]) {
     return ERROR_MESSAGES[code];
-  }
-  if (json?.error?.message) {
-    return json.error.message;
   }
   return "操作失败，请重试";
 }
