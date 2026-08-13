@@ -86,7 +86,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       if (!json.success) {
         if (json.error?.code === "QUOTA_EXCEEDED") {
           setPointsNeeded(30); setCurrentBalance(json.error?.data?.balance ?? 0);
-          setShowInsufficient(true); return;
+          setStep("idle"); setShowInsufficient(true); return;
         }
         setError(getErrorMessage(json)); setStep("idle"); return;
       }
@@ -112,7 +112,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       if (!json.success) {
         if (json.error?.code === "QUOTA_EXCEEDED") {
           setPointsNeeded(50); setCurrentBalance(json.error?.data?.balance ?? 0);
-          setShowInsufficient(true); return;
+          setStep("done"); setShowInsufficient(true); return;
         }
         setError(getErrorMessage(json)); setStep("done"); return;
       }
