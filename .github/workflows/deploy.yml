@@ -50,6 +50,9 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            echo ">>> 停止服务，释放资源给镜像构建（小配置服务器）..."
+            docker compose -f docker-compose.prod.yml stop
+
             echo ">>> 构建镜像并重启服务..."
             docker compose -f docker-compose.prod.yml up -d --build
 
@@ -62,17 +65,17 @@ jobs:
           echo ">>> 检查服务健康状态..."
           HEALTH_URL="http://${{ secrets.ECS_HOST }}/api/health"
 
-          for i in $(seq 1 12); do
+          for i in $(seq 1 24); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "✅ 健康检查通过 ($HEALTH_URL → $STATUS)"
               exit 0
             fi
-            echo "⏳ 第 ${i}/12 次检查: HTTP $STATUS，等待 5 秒..."
+            echo "⏳ 第 ${i}/24 次检查: HTTP $STATUS，等待 5 秒..."
             sleep 5
           done
 
-          echo "❌ 健康检查失败：12 次重试后后端仍无响应"
+          echo "❌ 健康检查失败：24 次重试后后端仍无响应"
           exit 1
 
       - name: 部署总结
