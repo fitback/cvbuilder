@@ -23,7 +23,11 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get("auth_token")?.value;
   if (!token) {
     const loginUrl = new URL("/", req.url);
-    return NextResponse.redirect(loginUrl);
+    // no-store：防止 Next.js 路由缓存缓存此重定向（Link 预取会把未登录时的
+    // 重定向结果缓存进 router cache，导致登录后 router.push 命中缓存留在首页）
+    const res = NextResponse.redirect(loginUrl);
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   }
 
   return NextResponse.next();

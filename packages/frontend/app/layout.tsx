@@ -115,6 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <Link
                       key={href}
                       href={href}
+                      prefetch={false}
                       className={`flex items-center gap-2.5 pl-[9px] pr-3 py-2.5 rounded-r-lg text-sm
                         border-l-[3px] border-transparent
                         transition-all duration-150 ease-out
@@ -170,6 +171,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   className={`flex flex-col items-center gap-0.5 px-3 pt-[4px] pb-1.5 min-w-[56px] text-xs
                     border-t-2 border-transparent
                     transition-colors duration-150
