@@ -27,18 +27,18 @@ jobs:
       - name: 构建 shared 类型包
         run: npm run build -w packages/shared
 
-      - name: 构建 backend（含类型检查）
-        run: npm run build -w packages/backend
-
       - name: 验证 Prisma schema
         run: npx prisma validate --schema=packages/backend/prisma/schema.prisma
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
-      - name: 生成 Prisma client
+      - name: 生成 Prisma client（必须先于 backend 构建，否则 strict 模式下查询类型退化为 any）
         run: npm run db:generate -w packages/backend
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+      - name: 构建 backend（含类型检查）
+        run: npm run build -w packages/backend
 
       - name: 构建 frontend（含类型检查）
         run: npm run build -w packages/frontend
