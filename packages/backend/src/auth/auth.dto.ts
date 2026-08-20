@@ -8,10 +8,6 @@ export class RegisterDto {
   @IsString()
   @Length(6, 64, { message: "密码最少6位" })
   password!: string;
-
-  @IsString()
-  @Length(1, 2048)
-  turnstileToken!: string;
 }
 
 export class LoginDto {
@@ -22,8 +18,4 @@ export class LoginDto {
   @IsString()
   @Length(1, 64)
   password!: string;
-
-  @IsString()
-  @Length(1, 2048)
-  turnstileToken!: string;
 }

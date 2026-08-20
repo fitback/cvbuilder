@@ -2,10 +2,6 @@ import { config } from "dotenv";
 import { resolve } from "path";
 config({ path: resolve(__dirname, "../.env") });
 
-if (!process.env.TURNSTILE_SECRET_KEY) {
-  console.warn("⚠️ TURNSTILE_SECRET_KEY is not set — login/register will fail with '安全验证失败，请重试'");
-}
-
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
