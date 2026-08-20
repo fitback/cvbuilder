@@ -49,7 +49,6 @@ services:
       ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL}
     volumes:
       - resume_data:/data/resumes
-      - payment_qr_data:/data/payment-qr
     depends_on:
       postgres:
         condition: service_healthy
@@ -111,4 +110,3 @@ volumes:
   pgdata:
   redisdata:
   resume_data:
-  payment_qr_data:

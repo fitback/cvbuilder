@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../../components/Button";
-import { AlertCircle, ShieldAlert, Upload, Image } from "../../components/icons";
+import { AlertCircle, ShieldAlert } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { apiFetch, API_BASE } from "../../lib/auth";
 
@@ -22,10 +22,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [qrExists, setQrExists] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [health, setHealth] = useState<Record<string, any> | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   async function fetchHealth() {
@@ -48,47 +45,11 @@ export default function AdminPage() {
     if (json.success) setUsers(json.data ?? []);
   }
 
-  async function fetchQrStatus() {
-    try {
-      const res = await apiFetch(`${API}/payment/qr-code`);
-      const json = await res.json();
-      if (json.success) setQrExists(json.data.exists);
-    } catch {}
-  }
-
   useEffect(() => {
     setLoading(true);
     setError("");
-    Promise.all([fetchRecharges(), fetchUsers(), fetchQrStatus(), fetchHealth()]).finally(() => setLoading(false));
+    Promise.all([fetchRecharges(), fetchUsers(), fetchHealth()]).finally(() => setLoading(false));
   }, []);
-
-  async function handleUploadQr(file: File) {
-    if (!file.type.startsWith("image/")) {
-      toast("仅支持图片格式", "error");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast("图片不能超过 2MB", "error");
-      return;
-    }
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await apiFetch(`${API}/payment/qr-code`, { method: "POST", body: form });
-      const json = await res.json();
-      if (json.success) {
-        toast("付款码已更新", "success");
-        setQrExists(true);
-      } else {
-        toast(json.error?.message ?? "上传失败", "error");
-      }
-    } catch {
-      toast("上传失败，请重试", "error");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   if (error && !loading) {
     return (
@@ -117,42 +78,7 @@ export default function AdminPage() {
     <div className="animate-[slideUp_300ms_ease-out] space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-[#1A1A1A]">管理后台</h2>
-        <p className="text-sm text-[#6B6B6B] mt-1">充值记录与付款码管理</p>
-      </div>
-
-      {/* QR Code */}
-      <div className="bg-white border border-[#EBEBEB] rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Image size={18} className="text-[#B75C3A]" />
-            <h3 className="text-sm font-semibold text-[#1A1A1A]">付款码管理</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <input ref={fileRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadQr(f); }} />
-            <Button variant="secondary" size="sm" icon={<Upload size={14} />}
-              loading={uploading} onClick={() => fileRef.current?.click()}>
-              上传付款码
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {qrExists ? (
-            <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-[#EBEBEB] bg-[#F5F4F2]">
-              <img src={`${API}/payment/qr-code-image?t=${Date.now()}`} alt="付款二维码" className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <div className="w-32 h-32 rounded-xl border border-dashed border-[#D4D4D4] flex items-center justify-center bg-[#FAFAF9]">
-              <div className="text-center">
-                <Image size={28} className="mx-auto text-[#D4D4D4] mb-1" />
-                <p className="text-xs text-[#9E9E9E]">暂无</p>
-              </div>
-            </div>
-          )}
-          <div className="text-xs text-[#6B6B6B] space-y-1">
-            <p>建议尺寸：300 × 300 像素 | 格式：PNG、JPG | 上限：2MB</p>
-          </div>
-        </div>
+        <p className="text-sm text-[#6B6B6B] mt-1">充值记录与用户管理</p>
       </div>
 
       {/* Service Health */}

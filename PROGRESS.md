@@ -191,6 +191,9 @@ Worker (BullMQ) → 简历解析队列
 | 08/14 | 登录点击后页面不跳转，需刷新 | Link 预取把未登录 307 重定向缓存进路由缓存；prefetch={false} + 中间件重定向 no-store |
 | 08/14 | 退出登录后积分显示板不消失 | PointsBalance 挂载条件补 loggedIn 检查 |
 | 08/20 | 管理页看不到已上传的付款码 | /data/payment-qr 未挂载卷，容器重建即销毁；新增 payment_qr_data 命名卷持久化（原图已无法找回，需重新上传） |
+| 08/20 | v0.7.0 部署 CI 失败（11 个 TS7006） | strict 模式下 ci.yml 构建 backend 先于 prisma generate，查询类型退化 any；步骤重排 |
+| 08/20 | Docker 构建失败（同因） | 两个 Dockerfile 同样顺序问题；db:generate 移到 build 之前 |
+| 08/20 | 后端启动即崩（Prisma 引擎不匹配） | 镜像生成 openssl-1.1 引擎、bookworm 运行时需 3.0；schema 显式声明 binaryTargets 双目标 |
 
 ---
 
@@ -205,7 +208,7 @@ Worker (BullMQ) → 简历解析队列
 | P0 | 支付宝商户号申请与配置 | ✅ 已完成（2026-06-13） |
 | P0 | 生产环境 HTTPS + Nginx 部署 | ✅ 已完成（2026-06-15） |
 | P0 | 数据库生产密码修改 | 🔴 |
-| P0 | v0.5.2 安全加固上线 | 🔴 本地 main 有 16 个未推送提交；上线前需在服务器 `.env.prod` 配置 `TURNSTILE_SECRET_KEY`（main.ts 启动时检查，缺失会导致后端启动失败） |
+| P0 | v0.5.2 安全加固上线 | ✅ 已随 v0.7.0 上线（2026-08-20；Turnstile 除外——已移除，未配密钥） |
 
 ### 功能待完善
 
@@ -234,7 +237,12 @@ Worker (BullMQ) → 简历解析队列
 
 ## 六、上次工作到的位置
 
-**刚完成**（2026-08-13）：v0.6.1 生产修复批次全部上线
+**刚完成**（2026-08-20）：v0.7.0 成功上线
+- Turnstile 移除（未配密钥，本版不上线；commit `524ac6a`，可 revert 恢复）
+- 部署链路三处潜伏 bug 修复：ci.yml / 两个 Dockerfile 的 Prisma 生成顺序、schema binaryTargets 引擎目标（openssl 3.0）
+- 浏览器实测：登录直达 dashboard、无 Turnstile 控件、备案号/favicon 无回归
+
+**此前完成**（2026-08-13）：v0.6.1 生产修复批次全部上线
 - HTTPS 事故恢复 + nginx 443 配置进 git（永久生效）
 - 备案号（沪ICP备2026028917号-1）上线
 - 部署流水线加固：先停容器再构建 + 超时 30m/45m + 健康检查 24 次重试
@@ -247,7 +255,7 @@ Worker (BullMQ) → 简历解析队列
 
 ### 下一阶段
 
-- **P0：v0.5.2 安全加固上线**（16 个未推送提交；先配 `TURNSTILE_SECRET_KEY` 再推送部署）
+- ~~**P0：v0.5.2 安全加固上线**~~ ← ✅ 2026-08-20 已随 v0.7.0 上线（Turnstile 已移除；后续要重新启用时先配密钥）
 - 密码找回、支付测试
 - **UI/UX 后续渐进式优化**：详见 [2026-08-19-ui-ux-follow-up-optimization.md](docs/superpowers/plans/2026-08-19-ui-ux-follow-up-optimization.md)。当前先处理 P0 入口纠偏和 P1 分析页交互，全部本地验收后再考虑推送。
 
@@ -394,8 +402,8 @@ Worker (BullMQ) → 简历解析队列
 | 3.2 | 2 | 限流 | 未限流接口补 @Throttle（export/pdf, DELETE 等） | ✅ |
 | 4.1 | 3 | 缓存 | Redis CacheService（getOrSet + del） | ✅ |
 | 4.2 | 3 | 缓存 | 热点接口接入缓存（jobs, analyze/saved, points/balance, resumes） | ✅ |
-| 5.1 | 3 | 防爬虫 | Cloudflare Turnstile 前端接入（登录 + 注册） | ✅ |
-| 5.2 | 3 | 防爬虫 | Turnstile 后端验证逻辑 | ✅ |
+| 5.1 | 3 | 防爬虫 | Cloudflare Turnstile 前端接入（登录 + 注册） | ❌ 已移除（2026-08-20，未配密钥） |
+| 5.2 | 3 | 防爬虫 | Turnstile 后端验证逻辑 | ❌ 已移除（2026-08-20，未配密钥） |
 | 6.1 | 2 | 队列 | BullMQ limiter（max: 5/min） | ✅ |
 
 ### 变更记录
@@ -406,6 +414,7 @@ Worker (BullMQ) → 简历解析队列
 | 2026-07-29 | 修复 proxy_no_cache 导致的所有缓存失效 Bug |
 | 2026-07-29 | 修复 analyze.service.ts 中 cache.del 在 try/catch 内导致的积分误退 Bug |
 | 2026-08-13 | ⚠️ 部署状态：nginx 层（限流/缓存）已随 HTTPS 修复上线；**应用层（helmet/ValidationPipe/Throttle/Turnstile/Redis 缓存）仍在本地 main 未推送**，上线前需服务器配置 `TURNSTILE_SECRET_KEY` |
+| 2026-08-20 | Turnstile（5.1/5.2）整体移除：未配置密钥会阻断登录注册，本版不上线；commit `524ac6a`，后续可 revert 重新启用（需先配密钥）。其余安全加固随 v0.7.0 部署 |
 | 2026-08-20 | 管理后台新增注册用户记录：管理员可查看完整手机号、角色、积分和注册时间；接口仅管理员可访问，未推送部署 |
 
 ---

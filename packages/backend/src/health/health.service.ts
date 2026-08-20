@@ -82,21 +82,6 @@ export class HealthService {
       ? { status: "ok", message: "Configured" }
       : { status: "degraded", message: "ALIPAY_APP_ID not set" };
 
-    // 7. Payment QR code
-    const qrPath = process.env.RESUME_STORAGE_PATH
-      ? join(process.env.RESUME_STORAGE_PATH, "../payment-qr/qr-code.png")
-      : "./data/payment-qr/qr-code.png";
-    try {
-      const fs = await import("fs");
-      if (fs.existsSync(qrPath)) {
-        checks.paymentQr = { status: "ok", message: "QR code exists" };
-      } else {
-        checks.paymentQr = { status: "degraded", message: "Payment QR not uploaded" };
-      }
-    } catch {
-      checks.paymentQr = { status: "degraded", message: "Payment QR path invalid" };
-    }
-
     return {
       status: overall,
       timestamp: new Date().toISOString(),
