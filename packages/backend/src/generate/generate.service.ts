@@ -1,7 +1,8 @@
-import { Injectable, HttpException } from "@nestjs/common";
+import { Injectable, HttpException, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+
 import { PointsService } from "../points/points.service";
-import { GenerateRequest, GenerateResponse, ErrorCode } from "@cvbuilder/shared";
+import { GenerateRequest, GenerateResponse, AnalysisResult, ErrorCode } from "@cvbuilder/shared";
 import { CircuitBreaker } from "../analyze/circuit-breaker";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -28,7 +29,7 @@ async function callDeepSeek(messages: any[], temperature = 0.4): Promise<string>
       });
       clearTimeout(timeout);
       if (!res.ok) throw new Error(`DeepSeek returned ${res.status}`);
-      const data = await res.json() as any;
+      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
       return data.choices[0].message.content;
     } catch (err) {
       lastError = err as Error;
@@ -40,6 +41,8 @@ async function callDeepSeek(messages: any[], temperature = 0.4): Promise<string>
 
 @Injectable()
 export class GenerateService {
+  private readonly logger = new Logger(GenerateService.name);
+
   constructor(
     private prisma: PrismaService,
     private points: PointsService,
@@ -62,7 +65,7 @@ export class GenerateService {
       throw new HttpException({ code: ErrorCode.PARSE_FAILED, message: "分析尚未完成" }, 422);
     }
 
-    const analysisResult = analysis.analysisResult as any;
+    const analysisResult = analysis.analysisResult as unknown as AnalysisResult;
 
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const isAdmin = user.role === "admin";
@@ -85,7 +88,7 @@ export class GenerateService {
       // Persist generated markdown in analysisResult
       await this.prisma.analysisRecord.update({
         where: { id: body.analysisRecordId },
-        data: { analysisResult: { ...analysisResult, generatedResume: markdown } },
+        data: { analysisResult: JSON.parse(JSON.stringify({ ...analysisResult, generatedResume: markdown })) },
       });
 
       return {
@@ -95,7 +98,11 @@ export class GenerateService {
       };
     } catch {
       if (!isAdmin) {
-        await this.points.refund(userId, 50, "生成失败退还", body.resumeId).catch(() => {});
+        try {
+          await this.points.refund(userId, 50, "生成失败退还", body.resumeId);
+        } catch (refundErr) {
+          this.logger.error(`Refund failed for user ${userId}: ${(refundErr as Error).message}`);
+        }
       }
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "AI服务暂时不可用，请稍后重试" }, 503);
     }
@@ -106,10 +113,10 @@ export class GenerateService {
     if (!analysis || analysis.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
     }
-    const result = (analysis.analysisResult as any) ?? {};
+    const result = (analysis.analysisResult as unknown as AnalysisResult) ?? ({} as AnalysisResult);
     await this.prisma.analysisRecord.update({
       where: { id: analysisRecordId },
-      data: { analysisResult: { ...result, editedResume: markdown } },
+      data: { analysisResult: JSON.parse(JSON.stringify({ ...result, editedResume: markdown })) },
     });
     return { success: true };
   }
@@ -119,7 +126,7 @@ export class GenerateService {
     if (!analysis || analysis.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
     }
-    const result = analysis.analysisResult as any;
+    const result = analysis.analysisResult as unknown as AnalysisResult;
     if (!result?.generatedResume) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "尚未生成简历" }, 404);
     }

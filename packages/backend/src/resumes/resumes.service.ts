@@ -1,7 +1,7 @@
-import { Injectable, HttpException, Inject } from "@nestjs/common";
+import { Injectable, HttpException, Inject, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../common/cache/cache.service";
-import { UploadResponse, ErrorCode, ResumeItem, ResumeDetail } from "@cvbuilder/shared";
+import { UploadResponse, ErrorCode, ResumeItem, ResumeDetail, ParseStatus, ParseResult } from "@cvbuilder/shared";
 import { v4 as uuid } from "uuid";
 import * as fs from "fs";
 import * as path from "path";
@@ -15,6 +15,8 @@ const ALLOWED_TYPES: Record<string, "pdf" | "docx"> = {
 
 @Injectable()
 export class ResumesService {
+  private readonly logger = new Logger(ResumesService.name);
+
   constructor(
     private prisma: PrismaService,
     private cache: CacheService,
@@ -98,7 +100,7 @@ export class ResumesService {
       id: r.id,
       fileNameOriginal: r.fileNameOriginal ?? "",
       fileType: r.fileType as "pdf" | "docx",
-      parseStatus: r.parseStatus as any,
+      parseStatus: r.parseStatus as ParseStatus,
       fileSize: r.fileSize ?? 0,
       freeAnalysisCount: r.freeAnalysisCount,
       analysisCount: r._count.analysisRecords,
@@ -118,12 +120,12 @@ export class ResumesService {
       id: resume.id,
       fileNameOriginal: resume.fileNameOriginal ?? "",
       fileType: resume.fileType as "pdf" | "docx",
-      parseStatus: resume.parseStatus as any,
+      parseStatus: resume.parseStatus as ParseStatus,
       fileSize: resume.fileSize ?? 0,
       freeAnalysisCount: resume.freeAnalysisCount,
       analysisCount: resume._count.analysisRecords,
       createdAt: resume.createdAt.toISOString(),
-      parseResult: resume.parseResult as any,
+      parseResult: resume.parseResult as ParseResult | null,
       rawText: resume.rawText,
     };
   }
@@ -155,12 +157,12 @@ export class ResumesService {
       id: updated!.id,
       fileNameOriginal: updated!.fileNameOriginal ?? "",
       fileType: updated!.fileType as "pdf" | "docx",
-      parseStatus: updated!.parseStatus as any,
+      parseStatus: updated!.parseStatus as ParseStatus,
       fileSize: updated!.fileSize ?? 0,
       freeAnalysisCount: updated!.freeAnalysisCount,
       analysisCount: updated!._count.analysisRecords,
       createdAt: updated!.createdAt.toISOString(),
-      parseResult: updated!.parseResult as any,
+      parseResult: updated!.parseResult as ParseResult | null,
       rawText: updated!.rawText,
     };
   }
@@ -170,7 +172,9 @@ export class ResumesService {
     if (!resume || resume.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
     }
-    try { fs.unlinkSync(resume.filePath); } catch (_) {}
+    try { fs.unlinkSync(resume.filePath); } catch (e) {
+      this.logger.warn(`Failed to delete resume file ${resume.filePath}: ${(e as Error).message}`);
+    }
     await this.prisma.resume.delete({ where: { id } });
     await this.cache.del(`cache:resumes:list:${userId}`);
     return { success: true };

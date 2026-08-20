@@ -1,16 +1,80 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ResumeDetail, ParseResult } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
 import {
-  FileText, AlertCircle, RefreshCw, Check, Sparkles, Plus, Trash2, ChevronLeft,
+  FileText, AlertCircle, RefreshCw, Check, Sparkles, Plus, Trash2, ChevronLeft, Columns,
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
 
 const API = API_BASE;
+
+function renderResumePreview(form: ParseResult): string {
+  if (!form.name) return "";
+  const { contact, summary, workExperience, projectExperience, education, skills } = form;
+  const items = (arr: any[], key: string) => arr.map((i) => i[key]).filter(Boolean).join("、");
+  const section = (title: string, body: string) =>
+    body ? `<div style="margin-top:0.6cm"><h2 style="font-size:13pt;font-weight:600;margin-bottom:0.2cm;border-bottom:1px solid #D4D4D4;padding-bottom:0.1cm;color:#2D2D2D">${title}</h2>${body}</div>` : "";
+
+  let html = `<div style="max-width:21cm;margin:0 auto;padding:1.5cm 2cm;font-family:'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;font-size:10.5pt;line-height:1.5;color:#2D2D2D">`;
+
+  html += `<h1 style="font-size:22pt;font-weight:700;margin:0 0 0.2cm;color:#1A1A1A">${escHtml(form.name)}</h1>`;
+  const contacts = [contact.phone, contact.email, contact.location].filter(Boolean);
+  if (contacts.length) html += `<div style="font-size:9pt;color:#6B6B6B;margin-bottom:0.1cm">${contacts.map(escHtml).join(" · ")}</div>`;
+
+  html += section("个人摘要", summary ? `<p style="margin:0.15cm 0;font-size:10pt;color:#4A4A4A">${escHtml(summary)}</p>` : "");
+
+  if (workExperience.length) {
+    let body = "";
+    for (const w of workExperience) {
+      body += `<div style="margin-top:0.3cm"><div style="display:flex;justify-content:space-between"><strong>${escHtml(w.company)}</strong><span style="color:#6B6B6B;font-size:9pt">${escHtml(w.duration)}</span></div>`;
+      if (w.position) body += `<div style="font-size:9pt;color:#9E9E9E;margin:0.05cm 0">${escHtml(w.position)}</div>`;
+      if (w.description) body += `<p style="margin:0.1cm 0;font-size:10pt;color:#4A4A4A">${escHtml(w.description)}</p>`;
+      body += `</div>`;
+    }
+    html += section("工作经历", body);
+  }
+
+  // Project Experience
+  if (projectExperience.length) {
+    let body = "";
+    for (const p of projectExperience) {
+      body += `<div style="margin-top:0.3cm"><div style="display:flex;justify-content:space-between"><strong>${escHtml(p.name)}</strong><span style="color:#6B6B6B;font-size:9pt">${escHtml(p.duration)}</span></div>`;
+      if (p.role) body += `<div style="font-size:9pt;color:#9E9E9E;margin:0.05cm 0">${escHtml(p.role)}</div>`;
+      if (p.description) body += `<p style="margin:0.1cm 0;font-size:10pt;color:#4A4A4A">${escHtml(p.description)}</p>`;
+      body += `</div>`;
+    }
+    html += section("项目经历", body);
+  }
+
+  // Education
+  if (education.length) {
+    let body = "";
+    for (const e of education) {
+      body += `<div style="margin-top:0.3cm"><div style="display:flex;justify-content:space-between"><strong>${escHtml(e.school)}</strong><span style="color:#6B6B6B;font-size:9pt">${escHtml(e.duration)}</span></div>`;
+      const detail = [e.major, e.degree].filter(Boolean).join(" · ");
+      if (detail) body += `<div style="font-size:9pt;color:#9E9E9E;margin:0.05cm 0">${escHtml(detail)}</div>`;
+      body += `</div>`;
+    }
+    html += section("教育背景", body);
+  }
+
+  // Skills
+  if (skills.length) {
+    html += section("专业技能", `<p style="margin:0.15cm 0;font-size:10pt;color:#4A4A4A">${skills.map(escHtml).join("、")}</p>`);
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function escHtml(s: string | undefined): string {
+  if (!s) return "";
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 function emptyParseResult(): ParseResult {
   return {
@@ -31,8 +95,43 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [splitView, setSplitView] = useState(false);
+  const lastSavedSnapshot = useRef("");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+
+  // Save on Ctrl/Cmd+S
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (resume) handleSave();
+      }
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [resume, form]);
+
+  useEffect(() => {
+    if (!resume || loading || resume.parseStatus !== "parsed") return;
+    const snapshot = JSON.stringify(form);
+    if (!lastSavedSnapshot.current || snapshot === lastSavedSnapshot.current) return;
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { void handleSave(true); }, 2000);
+
+    return () => {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
+    };
+  }, [form, loading, resume]);
+
+  useEffect(() => () => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+  }, []);
 
   useEffect(() => {
     apiFetch(`${API}/resumes/${id}`)
@@ -42,7 +141,7 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
           setResume(json.data);
           const pr = json.data.parseResult;
           if (pr && pr.name) {
-            setForm({
+            const parsedForm = {
               name: pr.name || "",
               contact: { phone: pr.contact?.phone || "", email: pr.contact?.email || "", location: pr.contact?.location || "" },
               summary: pr.summary || "",
@@ -50,7 +149,11 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
               projectExperience: pr.projectExperience || [],
               education: pr.education || [],
               skills: pr.skills || [],
-            });
+            };
+            setForm(parsedForm);
+            lastSavedSnapshot.current = JSON.stringify(parsedForm);
+          } else {
+            lastSavedSnapshot.current = JSON.stringify(emptyParseResult());
           }
         } else {
           setError(json.error?.message ?? "加载失败");
@@ -60,8 +163,11 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function handleSave() {
+  async function handleSave(isAutoSave = false) {
+    const snapshot = JSON.stringify(form);
+    if (isAutoSave && snapshot === lastSavedSnapshot.current) return;
     setSaving(true);
+    window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "saving", time: "" } }));
     try {
       const res = await apiFetch(`${API}/resumes/${id}`, {
         method: "PUT",
@@ -71,11 +177,18 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
       const json = await res.json();
       if (!json.success) {
         toast("保存失败", "error");
+        window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "error", time: "" } }));
+        setTimeout(() => window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time: "" } })), 5000);
         return;
       }
-      toast("保存成功", "success");
+      lastSavedSnapshot.current = snapshot;
+      if (!isAutoSave) toast("保存成功", "success");
+      const time = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+      window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time } }));
     } catch {
       toast("网络错误", "error");
+      window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "error", time: "" } }));
+      setTimeout(() => window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time: "" } })), 5000);
     } finally {
       setSaving(false);
     }
@@ -140,8 +253,7 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
   const notParsed = resume.parseStatus !== "parsed" || !resume.parseResult;
 
   return (
-    <div className="animate-[slideUp_300ms_ease-out] space-y-6 max-w-3xl">
-      {/* Header */}
+    <div className={`animate-[slideUp_300ms_ease-out] space-y-6 ${splitView ? "" : "max-w-3xl"}`}>
       <div className="flex items-center justify-between">
         <div>
           <button
@@ -159,11 +271,19 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Columns size={14} />}
+            onClick={() => setSplitView(!splitView)}
+          >
+            {splitView ? "单栏" : "分屏"}
+          </Button>
+          <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={() => void handleSave()}>
             保存
           </Button>
           <Button
-            variant="primary"
+            variant="secondary"
             size="sm"
             icon={<Sparkles size={14} />}
             onClick={() => router.push(`/analyze/${id}`)}
@@ -174,16 +294,73 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {notParsed ? (
-        <div className="p-8 bg-white border border-[#EBEBEB] rounded-xl text-center">
-          <FileText size={48} className="text-[#D4D4D4] mx-auto mb-3" />
-          <p className="text-sm text-[#6B6B6B]">
-            {resume.parseStatus === "parsing" ? "正在解析中，请稍候..." : "简历尚未解析完成"}
-          </p>
-        </div>
+        resume.parseStatus === "parsing" ? (
+          <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
+            {/* Simulated skeleton form */}
+            <SkeletonSection>
+              <div className="grid grid-cols-2 gap-3">
+                <SkeletonField />
+                <SkeletonField />
+                <SkeletonField />
+                <SkeletonField />
+              </div>
+              <div className="mt-3">
+                <div className="h-3 w-16 bg-[#E8E6E3] rounded mb-2" />
+                <div className="h-20 bg-[#F0EFED] rounded-lg" />
+              </div>
+            </SkeletonSection>
+            <SkeletonSection>
+              <div className="space-y-3">
+                <div className="h-3 w-20 bg-[#E8E6E3] rounded mb-3" />
+                <div className="grid grid-cols-2 gap-3">
+                  <SkeletonField />
+                  <SkeletonField />
+                  <SkeletonField />
+                </div>
+                <div className="h-16 bg-[#F0EFED] rounded-lg" />
+              </div>
+            </SkeletonSection>
+            <SkeletonSection>
+              <div className="space-y-3">
+                <div className="h-3 w-20 bg-[#E8E6E3] rounded mb-3" />
+                <div className="grid grid-cols-2 gap-3">
+                  <SkeletonField />
+                  <SkeletonField />
+                  <SkeletonField />
+                </div>
+                <div className="h-16 bg-[#F0EFED] rounded-lg" />
+              </div>
+            </SkeletonSection>
+            <SkeletonSection>
+              <div className="space-y-3">
+                <div className="h-3 w-20 bg-[#E8E6E3] rounded mb-3" />
+                <div className="grid grid-cols-2 gap-3">
+                  <SkeletonField />
+                  <SkeletonField />
+                  <SkeletonField />
+                  <SkeletonField />
+                </div>
+              </div>
+            </SkeletonSection>
+            <SkeletonSection>
+              <div className="h-3 w-16 bg-[#E8E6E3] rounded mb-2" />
+              <div className="h-9 bg-[#F0EFED] rounded-lg" />
+            </SkeletonSection>
+            <div className="flex justify-center pt-2">
+              <div className="w-8 h-8 border-2 border-[#B75C3A] border-t-transparent rounded-full animate-spin" />
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 bg-white border border-[#EBEBEB] rounded-xl text-center">
+            <FileText size={48} className="text-[#D4D4D4] mx-auto mb-3" />
+            <p className="text-sm text-[#6B6B6B]">简历尚未解析完成</p>
+            <p className="text-xs text-[#9E9E9E] mt-2">上传完成后请等待解析</p>
+          </div>
+        )
       ) : (
-        <div className="space-y-6">
-          {/* Basic Info */}
-          <Section title="基本信息">
+        <div className={splitView ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}>
+          <div className="space-y-6">
+            <Section title="基本信息">
             <div className="grid grid-cols-2 gap-3">
               <Field label="姓名" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} />
               <Field label="手机" value={form.contact.phone} onChange={(v) => updateContact("phone", v)} />
@@ -299,14 +476,30 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
               编辑完成后请保存，再进行简历分析
             </span>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>
+              <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={() => void handleSave()}>
                 保存
               </Button>
-              <Button variant="primary" size="sm" icon={<Sparkles size={14} />} onClick={() => router.push(`/analyze/${id}`)}>
+              <Button variant="secondary" size="sm" icon={<Sparkles size={14} />} onClick={() => router.push(`/analyze/${id}`)}>
                 简历分析
               </Button>
             </div>
           </div>
+        </div>
+          {splitView && (
+            <div className="hidden lg:block">
+              <div className="bg-white border border-[#EBEBEB] rounded-xl overflow-hidden sticky top-6">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#EBEBEB] bg-[#FAFAF9]">
+                  <FileText size={14} className="text-[#6B6B6B]" />
+                  <span className="text-xs font-medium text-[#6B6B6B]">A4 实时预览</span>
+                </div>
+                <div
+                  className="overflow-y-auto"
+                  style={{ maxHeight: "calc(100vh - 200px)" }}
+                  dangerouslySetInnerHTML={{ __html: renderResumePreview(form) }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -386,11 +579,29 @@ function ArrayCard({
         <button
           onClick={onRemove}
           className="text-[#C75B5B] hover:text-[#A94848] transition-colors"
+          aria-label={`删除${label}`}
         >
           <Trash2 size={14} />
         </button>
       </div>
       {children}
+    </div>
+  );
+}
+
+function SkeletonSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-[#EBEBEB] rounded-xl p-5">
+      {children}
+    </div>
+  );
+}
+
+function SkeletonField() {
+  return (
+    <div>
+      <div className="h-3 w-14 bg-[#E8E6E3] rounded mb-2" />
+      <div className="h-9 bg-[#F0EFED] rounded-lg" />
     </div>
   );
 }

@@ -8,7 +8,7 @@ export class AdminGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const userId = (req as any).userId;
+    const userId = (req as Request & { userId: string }).userId;
     if (!userId) {
       throw new HttpException({ code: ErrorCode.UNAUTHORIZED, message: "请先登录" }, 401);
     }

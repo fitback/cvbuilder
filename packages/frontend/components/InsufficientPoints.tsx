@@ -2,6 +2,7 @@
 
 import { AlertCircle, Coins } from "./icons";
 import { Button } from "./Button";
+import { useModalA11y } from "../lib/useModalA11y";
 
 interface Props {
   needed: number;
@@ -10,19 +11,24 @@ interface Props {
 }
 
 export default function InsufficientPoints({ needed, current, onClose }: Props) {
+  const dialogRef = useModalA11y(true, onClose);
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="insufficient-points-title"
         className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-center animate-[slideUp_200ms_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-12 h-12 rounded-full bg-[#C7953A]/10 flex items-center justify-center mx-auto mb-4">
           <AlertCircle size={24} className="text-[#C7953A]" />
         </div>
-        <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">积分不足</h3>
+        <h3 id="insufficient-points-title" className="text-lg font-semibold text-[#1A1A1A] mb-2">积分不足</h3>
         <p className="text-sm text-[#6B6B6B] mb-4">
           需要 <strong className="text-[#B75C3A]">{needed}</strong> 积分，
           当前仅剩 <strong>{current}</strong> 积分

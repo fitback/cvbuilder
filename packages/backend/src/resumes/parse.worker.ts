@@ -52,7 +52,7 @@ ${rawText}`;
     body: JSON.stringify({ model: DEEPSEEK_MODEL, messages: [{ role: "user", content: prompt }], temperature: 0.1, response_format: { type: "json_object" } }),
   });
   if (!res.ok) throw new Error(`DeepSeek returned ${res.status}`);
-  const data = await res.json() as any;
+  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
   return JSON.parse(data.choices[0].message.content);
 }
 

@@ -11,57 +11,69 @@ export class PointsService {
   ) {}
 
   async deduct(userId: string, amount: number, description: string, referenceId?: string): Promise<number> {
-    const result = await this.prisma.user.updateMany({
-      where: { id: userId, points: { gte: amount } },
-      data: { points: { decrement: amount } },
-    });
-    if (result.count === 0) {
-      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-      throw new HttpException(
-        { code: ErrorCode.QUOTA_EXCEEDED, message: `积分不足，需要 ${amount} 积分`, data: { balance: user.points } },
-        403,
-      );
-    }
+    const points = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: { id: userId, points: { gte: amount } },
+        data: { points: { decrement: amount } },
+      });
+      if (result.count === 0) {
+        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        throw new HttpException(
+          { code: ErrorCode.QUOTA_EXCEEDED, message: `积分不足，需要 ${amount} 积分`, data: { balance: user.points } },
+          403,
+        );
+      }
 
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
 
-    await this.prisma.pointTransaction.create({
-      data: { userId, type: "debit", amount, balance: user.points, description, referenceId },
+      await tx.pointTransaction.create({
+        data: { userId, type: "debit", amount, balance: user.points, description, referenceId },
+      });
+
+      return user.points;
     });
 
     await this.cache.del(`cache:points:${userId}`);
 
-    return user.points;
+    return points;
   }
 
   async credit(userId: string, amount: number, description: string, referenceId?: string): Promise<number> {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { points: { increment: amount } },
-    });
+    const points = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { points: { increment: amount } },
+      });
 
-    await this.prisma.pointTransaction.create({
-      data: { userId, type: "credit", amount, balance: user.points, description, referenceId },
+      await tx.pointTransaction.create({
+        data: { userId, type: "credit", amount, balance: user.points, description, referenceId },
+      });
+
+      return user.points;
     });
 
     await this.cache.del(`cache:points:${userId}`);
 
-    return user.points;
+    return points;
   }
 
   async refund(userId: string, amount: number, description: string, referenceId?: string): Promise<number> {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { points: { increment: amount } },
-    });
+    const points = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { points: { increment: amount } },
+      });
 
-    await this.prisma.pointTransaction.create({
-      data: { userId, type: "refund", amount, balance: user.points, description, referenceId },
+      await tx.pointTransaction.create({
+        data: { userId, type: "refund", amount, balance: user.points, description, referenceId },
+      });
+
+      return user.points;
     });
 
     await this.cache.del(`cache:points:${userId}`);
 
-    return user.points;
+    return points;
   }
 
   async getBalance(userId: string): Promise<{ balance: number; recentTransactions: any[] }> {

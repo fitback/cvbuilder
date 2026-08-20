@@ -15,7 +15,7 @@ export class AuthGuard implements CanActivate {
     }
     try {
       const payload = this.jwt.verify(header.slice(7));
-      (req as any).userId = payload.sub;
+      (req as Request & { userId: string }).userId = payload.sub;
       return true;
     } catch {
       throw new HttpException({ code: ErrorCode.UNAUTHORIZED, message: "登录已过期，请重新登录" }, 401);

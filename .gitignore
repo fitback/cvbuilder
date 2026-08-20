@@ -1,12 +1,15 @@
 node_modules/
 dist/
 .next/
+.next-dev/
 .env
 .superpowers/
 **/data/
 *.db
 .gstack/
 .claude/
+.claude-flow/
+.omo/
 *.log
 *.tsbuildinfo
 .DS_Store

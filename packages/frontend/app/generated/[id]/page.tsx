@@ -12,6 +12,7 @@ import {
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
+import { useModalA11y } from "../../../lib/useModalA11y";
 
 const API = API_BASE;
 
@@ -47,8 +48,22 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   const moreRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const leaveDialogRef = useModalA11y(showLeaveConfirm, () => setShowLeaveConfirm(false));
+  const previewDialogRef = useModalA11y(showPreview, () => setShowPreview(false));
 
   const isDirty = content !== originalContent.current;
+
+  // Ctrl/Cmd+S to save
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (name.trim()) handleSave();
+      }
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [name, content]);
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -85,9 +100,15 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   }, [showMore]);
 
   // Auto-save draft every 30 seconds
+  function dispatchSave(state: "saving" | "idle" | "error") {
+    const time = state === "idle" ? new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "";
+    window.dispatchEvent(new CustomEvent("save-status", { detail: { state, time } }));
+  }
+
   const doAutoSave = useCallback(async () => {
     if (!content || !record) return;
     setAutoSaveStatus("saving");
+    dispatchSave("saving");
     try {
       const res = await apiFetch(`${API}/generated-resumes/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
@@ -98,14 +119,16 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
         setAutoSaveStatus("saved");
         originalContent.current = content;
         setLastSaved(new Date());
-        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+        setTimeout(() => { setAutoSaveStatus("idle"); dispatchSave("idle"); }, 3000);
       } else {
         setAutoSaveStatus("error");
-        setTimeout(() => setAutoSaveStatus("idle"), 5000);
+        dispatchSave("error");
+        setTimeout(() => { setAutoSaveStatus("idle"); dispatchSave("idle"); }, 5000);
       }
     } catch {
       setAutoSaveStatus("error");
-      setTimeout(() => setAutoSaveStatus("idle"), 5000);
+      dispatchSave("error");
+      setTimeout(() => { setAutoSaveStatus("idle"); dispatchSave("idle"); }, 5000);
     }
   }, [id, content, name, record]);
 
@@ -213,14 +236,14 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           </Button>
           <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={() => setShowPreview(true)}>预览导出</Button>
           <Button variant="secondary" size="sm" onClick={() => { if (isDirty) setShowLeaveConfirm(true); else router.push("/dashboard"); }}>返回</Button>
-          <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>确认</Button>
+          <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>保存并返回</Button>
         </div>
 
         {/* Mobile: primary + more */}
         <div className="flex sm:hidden items-center gap-2">
-          <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>确认</Button>
+          <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>保存并返回</Button>
           <div className="relative" ref={moreRef}>
-            <Button variant="secondary" size="sm" icon={<MoreHorizontal size={14} />} onClick={() => setShowMore(!showMore)} />
+            <Button variant="secondary" size="sm" icon={<MoreHorizontal size={14} />} onClick={() => setShowMore(!showMore)} aria-label="打开更多编辑操作" />
             {showMore && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-[#EBEBEB] rounded-lg shadow-lg py-1 z-50 min-w-[140px]">
                 <button onClick={() => { setShowPreview(true); setShowMore(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F4F2] flex items-center gap-2"><FileText size={14} />预览导出</button>
@@ -248,7 +271,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
 
       {/* Editor area */}
       <div className={`grid ${splitView ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
-        <div data-color-mode="light" className="rounded-xl overflow-hidden border border-[#EBEBEB]">
+        <div data-color-mode="light" className="responsive-md-editor rounded-xl overflow-hidden border border-[#EBEBEB]">
           <MDEditor value={content} onChange={(v) => setContent(v || "")} height={600} visibleDragbar={false} />
         </div>
         {splitView && (
@@ -257,7 +280,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
               <FileText size={14} className="text-[#9E9E9E]" />
               <span className="text-xs text-[#6B6B6B] font-medium">A4 实时预览</span>
             </div>
-            <div className="p-6 overflow-auto" style={{ height: 600 }}>
+            <div className="h-[400px] lg:h-[600px] p-6 overflow-auto">
               <div className="mx-auto" style={{ maxWidth: "21cm", fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans CN",sans-serif', fontSize: "10.5pt", lineHeight: "1.5", color: "#2D2D2D" }}
                 dangerouslySetInnerHTML={{ __html: renderPreviewHtml(content) }} />
             </div>
@@ -268,11 +291,11 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
       {/* Leave confirmation */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowLeaveConfirm(false)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">有未保存的更改</h3>
+          <div ref={leaveDialogRef} role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 id="leave-dialog-title" className="text-lg font-semibold text-[#1A1A1A] mb-2">有未保存的更改</h3>
             <p className="text-sm text-[#6B6B6B] mb-6">离开页面将丢失未保存的修改。是否保存后再离开？</p>
             <div className="flex gap-3 justify-end">
-              <Button variant="danger" size="sm" onClick={() => { setShowLeaveConfirm(false); router.push("/dashboard"); }}>不保存直接离开</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setShowLeaveConfirm(false); router.push("/dashboard"); }}>不保存直接离开</Button>
               <Button variant="primary" size="sm" onClick={handleSave}>保存并离开</Button>
             </div>
           </div>
@@ -282,13 +305,13 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
       {/* Preview/Export Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowPreview(false)}>
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title" className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#EBEBEB]">
-              <h3 className="text-lg font-semibold text-[#1A1A1A]">打印预览</h3>
+              <h3 id="preview-dialog-title" className="text-lg font-semibold text-[#1A1A1A]">打印预览</h3>
               <div className="flex items-center gap-2">
                 <Button variant="primary" size="sm" icon={<Download size={14} />} onClick={() => { doExportPdf(); }}>导出 PDF</Button>
                 <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={() => { doExportDocx(); }}>导出 DOCX</Button>
-                <button onClick={() => setShowPreview(false)} className="text-[#9E9E9E] hover:text-[#2D2D2D] text-lg leading-none">&times;</button>
+                <button onClick={() => setShowPreview(false)} className="text-[#9E9E9E] hover:text-[#2D2D2D] text-lg leading-none" aria-label="关闭打印预览">&times;</button>
               </div>
             </div>
             <div className="p-8 overflow-auto max-h-[calc(90vh-64px)] bg-white">

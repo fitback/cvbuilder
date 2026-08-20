@@ -21,8 +21,13 @@ export class CacheService {
 
   async del(pattern: string): Promise<void> {
     try {
-      const keys = await this.redis.keys(pattern);
-      if (keys.length) await this.redis.del(keys);
+      let cursor = "0";
+      do {
+        const result = await this.redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+        cursor = result[0];
+        const keys = result[1];
+        if (keys.length) await this.redis.del(keys);
+      } while (cursor !== "0");
     } catch {
       // Cache layer failure is non-critical — stale cache is better than broken business logic
     }

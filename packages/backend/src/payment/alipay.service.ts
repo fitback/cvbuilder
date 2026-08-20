@@ -51,7 +51,7 @@ export class AlipayService {
   }
 
   isValidPlan(amount: number): boolean {
-    return PLANS.includes(amount as any);
+    return (PLANS as readonly number[]).includes(amount);
   }
 
   static getPoints(amount: number): number {

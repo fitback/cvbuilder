@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PointTransactionItem } from "@cvbuilder/shared";
 import { X, Spinner, Coins, ArrowUpRight, ArrowDownRight, RotateCcw } from "./icons";
 import { apiFetch, API_BASE } from "../lib/auth";
+import { useModalA11y } from "../lib/useModalA11y";
 
 const API = API_BASE;
 
@@ -31,6 +32,7 @@ function TransactionIcon({ type }: { type: string }) {
 export default function PointsModal({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<PointTransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const dialogRef = useModalA11y(true, onClose);
 
   useEffect(() => {
     apiFetch(`${API}/points/transactions`)
@@ -44,10 +46,14 @@ export default function PointsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="points-modal-title"
         className="bg-white rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-xl
                    animate-[slideUp_200ms_ease-out]"
         onClick={(e) => e.stopPropagation()}
@@ -55,7 +61,7 @@ export default function PointsModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Coins size={20} className="text-[#B75C3A]" />
-            <h3 className="text-lg font-semibold text-[#1A1A1A]">积分明细</h3>
+            <h3 id="points-modal-title" className="text-lg font-semibold text-[#1A1A1A]">积分明细</h3>
           </div>
           <button
             onClick={onClose}

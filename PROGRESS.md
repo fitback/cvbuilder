@@ -1,7 +1,7 @@
 # ResumeMatcher 项目进展
 
-> 最后更新：2026-07-29
-> 当前版本：v0.5.2
+> 最后更新：2026-08-20
+> 当前版本：v0.7.0
 
 ---
 
@@ -13,7 +13,7 @@
 | 生产构建 | ✅ 三包通过 |
 | 部署方案 | ✅ CI/CD 完成，服务器已关联 |
 | 安全加固 | ✅ 已完成（v0.5.2 缓存 + 防爬虫 + 防 DDoS） |
-| UI/UX 体验 | ✅ 已优化 |
+| UI/UX 体验 | 🟡 持续优化中（v0.6.0） |
 | 新用户引导 | ✅ 仪表盘 3 步流程 |
 | 分析页交互 | ✅ 信息层级重组 + 可操作清单 |
 | 编辑器体验 | ✅ 分屏、自动保存、预览导出 |
@@ -37,6 +37,69 @@
 | v0.5.0 | 2026-06-15 | 支付宝电脑网站支付、域名备案、HTTPS 全站部署 |
 | v0.5.1 | 2026-06-25 | 修复严重安全漏洞（未登录可访问受保护页面）+ CORS 多源支持 |
 | v0.5.2 | 2026-07-29 | 安全加固：缓存体系 + 防爬虫（Turnstile）+ 防 DDoS（nginx 限流/helmet/ValidationPipe） |
+| v0.6.0 | 2026-07-29 | UI/UX 全面优化 + 安全加固冲刺 P0/P1 |
+| v0.6.1 | 2026-08-13 | 生产修复：HTTPS 恢复、备案号上线、部署流水线加固、会话过期处理 |
+| v0.7.0 | 2026-08-20 | 本地 UI/UX 后续优化、管理员注册用户记录、开发构建缓存隔离 |
+
+### v0.6.0 详细变更
+
+**安全加固冲刺**
+- CacheService `KEYS` → `SCAN` 非阻塞迭代器重写
+- main.ts 启动时检查 `TURNSTILE_SECRET_KEY` 环境变量
+- `.gitignore` + `git rm --cached` 清理 `.claude-flow/`
+- 全局 `as any` 类型清理（backend 18 处 + frontend 2 处全部消除）
+- 日志脱敏：`maskPhone()` 统一脱敏 phone 字段
+- Puppeteer 持久化：单浏览器实例 + 错误恢复 + `onApplicationShutdown` 关闭
+
+**UI/UX 优化批次 1（P0）**
+- Dashboard + Jobs 删除按钮移动端常显
+- Toast 定位移动端 `top-4` 避开底部导航
+- 全局键盘快捷键：`Ctrl+S` 保存、`Ctrl+Enter` 分析/生成
+- Admin 充值记录表移动端 `<768px` 卡片化
+- Dashboard 概览统计卡片（简历/岗位/生成数，可点击跳转）
+
+**UI/UX 优化批次 2（P1）**
+- 简历编辑分屏实时预览：左表单右 A4 渲染，点击「分屏」切换
+- 分析页 Sticky 分数栏 + 建议进度条（百分比 + 动画） + 排雷按风险分组 + 生成按钮渐入动画
+
+**UI/UX 优化批次 3（P1）**
+- 建议追踪持久化：`localStorage` 读写作废刷新保持状态
+- 解析中骨架细化：6-8 条模拟骨架表单（基本信息/工作经历/项目经历/教育背景/专业技能）+ 旋转加载指示
+
+**UI/UX 优化批次 4（P2）**
+- 导航 badge：仪表盘红点 30s 轮询解析中状态
+- 触控优化：iOS 输入框 `font-size: 16px` 防 zoom + 按钮 44px 最小触控区域
+- 上传页拖拽反馈：文件类型图标、即时校验、breathe 呼吸动画
+
+**UI/UX 优化批次 5（P3）**
+- 动效系统：staggerIn 列表入场动画、backdrop-blur-sm 弹窗模糊、AnimatedNumber 数字过渡
+- 空状态优化：Jobs/Dashboard Generated/Admin 空状态 SVG 插画 + 更紧密引导文案
+- 全局保存状态指示器：sidebar 底部保存状态栏，通过 custom event 联动编辑页
+
+**UI/UX 优化批次 6（P3）**
+- 暗色模式：Tailwind v4 `@custom-variant dark`，class-based 切换，prefers-color-scheme 默认跟随系统
+- 侧栏+底栏暗色切换按钮，localStorage 持久化偏好
+
+### v0.6.1 详细变更
+
+**HTTPS 事故修复（2026-08-13）**
+- 根因：443 SSL server 块从未提交进 git（仅存在于 6 月运行的 nginx 容器内），容器重建后丢失，HTTPS 静默中断
+- 修复：`nginx/nginx.conf` 补 443 server 块（Let's Encrypt 证书、TLS1.2/1.3、HTTP/2）+ 80 端口 HTTP→HTTPS 重定向；`/api/health` 保留 HTTP 可达（CI 健康检查依赖）
+- 部署流水线加固（3 项，均在 `cvbuilder2.0` main）：
+  - SSH 命令超时 10m→30m、job 超时 25m→45m（后端镜像构建重，10 分钟超时导致部署失败 + 孤儿构建拖垮服务器）
+  - **先停全部容器再构建**（小配置 ECS 构建时资源争抢导致整站卡死；构建完成自动全部拉起）
+  - 健康检查重试 12→24 次（容忍冷启动）
+- 备案号上线：首页底部「沪ICP备2026028917号-1」+ 链接 beian.miit.gov.cn
+- 前端修复：
+  - `apiFetch` 全局 401 处理：token 过期自动清除 + `auth-expired` 事件跳转登录页（此前过期会话控制台刷 401）
+  - `getErrorMessage` 具体信息优先（注册已存在手机号正确显示「该手机号已注册」而非笼统提示）
+  - 新增 `app/icon.svg` favicon（此前每次页面加载 404）
+- 积分不足流程修复：QUOTA_EXCEEDED 分支补 step 复位——取消充值弹窗后回到分析结果页/选 JD 页，不再卡在「AI 正在生成简历」假状态
+- 登录状态修复（双重根因）：
+  - nginx：`/api/auth/me` 移出登录防爆破限流桶（3r/m 误伤了每次页面加载都调用的 me 查询，503 后侧边栏退化为「登录/注册」），改用通用限流 + 5s 按用户缓存
+  - 前端：侧边栏导航（桌面 + 移动端）`<a>` → `<Link>` 客户端导航，不再整页刷新（也消除了登录状态闪烁）
+- 登录跳转修复（08-14）：`<Link>` 预取把未登录时的 307 重定向缓存进 Next.js 路由缓存，导致登录后 `router.push("/dashboard")` 命中缓存留在首页（需刷新才跳转）；修复：侧边栏 Link 加 `prefetch={false}` + 中间件重定向响应加 `Cache-Control: no-store` 双保险
+- 退出登录修复（08-14）：积分显示板挂载条件补 `loggedIn` 检查——此前退出后 `userRole` 重置为 `""` 仍满足 `!== "admin"`，积分板残留旧余额直到刷新（同时消除登录页的 401 控制台噪音）
 
 ### v0.4.1 详细变更
 
@@ -118,6 +181,16 @@ Worker (BullMQ) → 简历解析队列
 | 06/02 | 前端页面 500（Cannot find module） | 同 .next 缓存问题 |
 | 06/25 | 未登录可访问上传/分析页面（重大安全漏洞） | Next.js middleware 服务端路由保护 + cookie 鉴权 |
 | 06/25 | CORS 报错导致登录失败 | 修复 CORS 逗号分隔多源匹配 + 添加 IP 访问白名单 |
+| 08/13 | 域名打不开（HTTPS 443 无监听） | 443 server 块从未进 git，容器重建后丢失；补配置 + HTTP→HTTPS 重定向 |
+| 08/13 | 部署超时失败 + 孤儿构建拖垮服务器 | SSH 命令超时 10m→30m；先停容器再构建；健康检查重试 24 次 |
+| 08/13 | 会话过期后控制台刷 401 | apiFetch 全局 401 处理：清 token + auth-expired 事件跳登录 |
+| 08/13 | 注册已存在手机号提示笼统 | getErrorMessage 改为后端具体信息优先 |
+| 08/13 | favicon.ico 404 | 新增 app/icon.svg |
+| 08/13 | 积分不足取消充值后卡在「AI 正在生成简历」 | QUOTA_EXCEEDED 分支补 step 复位（analyze→idle / generate→done） |
+| 08/13 | 页面跳转后登录状态变「登录/注册」 | /auth/me 移出登录限流桶（3r/m→通用+5s缓存）+ 导航改 Link 客户端跳转 |
+| 08/14 | 登录点击后页面不跳转，需刷新 | Link 预取把未登录 307 重定向缓存进路由缓存；prefetch={false} + 中间件重定向 no-store |
+| 08/14 | 退出登录后积分显示板不消失 | PointsBalance 挂载条件补 loggedIn 检查 |
+| 08/20 | 管理页看不到已上传的付款码 | /data/payment-qr 未挂载卷，容器重建即销毁；新增 payment_qr_data 命名卷持久化（原图已无法找回，需重新上传） |
 
 ---
 
@@ -132,13 +205,14 @@ Worker (BullMQ) → 简历解析队列
 | P0 | 支付宝商户号申请与配置 | ✅ 已完成（2026-06-13） |
 | P0 | 生产环境 HTTPS + Nginx 部署 | ✅ 已完成（2026-06-15） |
 | P0 | 数据库生产密码修改 | 🔴 |
+| P0 | v0.5.2 安全加固上线 | 🔴 本地 main 有 16 个未推送提交；上线前需在服务器 `.env.prod` 配置 `TURNSTILE_SECRET_KEY`（main.ts 启动时检查，缺失会导致后端启动失败） |
 
 ### 功能待完善
 
 | 优先级 | 事项 | 说明 |
 |--------|------|------|
 | P1 | 密码找回 | 先做管理员重置，后接入短信 |
-| P1 | Docker 生产环境实际部署测试 | 本地构建成功但未实测 |
+| P1 | Docker 生产环境实际部署测试 | ✅ 已实测（2026-08-13 起多次生产部署） |
 | P2 | 微信支付 | 当前只做了支付宝 |
 | P2 | 简历模板市场 | 多模板可选 |
 | P2 | B 端企业功能 | 企业发 JD，匹配候选人 |
@@ -147,19 +221,39 @@ Worker (BullMQ) → 简历解析队列
 
 ### 技术债务
 
-| 事项 | 说明 |
-|------|------|
-| 日志脱敏 | 部署上线后再做 |
-| Puppeteer 浏览器池化 | 当前每个 PDF 请求起一个新 Chrome |
-| DeepSeek API 调用统一封装 | analyze、generate、parse.worker 各有独立实现 |
-| 前后端共享类型完善 | 部分接口用 any |
-| WebSocket 实时解析状态推送 | 当前靠前端轮询 |
+| 事项 | 说明 | 状态 |
+|------|------|------|
+| 日志脱敏 | phone 统一脱敏 | ✅ v0.6.0 |
+| Puppeteer 浏览器池化 | 单实例 + 错误恢复 + shutdown 清理 | ✅ v0.6.0 |
+| 全局 `as any` 类型清理 | backend 18 处 + frontend 2 处消 | ✅ v0.6.0 |
+| DeepSeek API 调用统一封装 | analyze、generate、parse.worker 各有独立实现 | 🔴 |
+| 前后端共享类型完善 | 部分接口仍可用 optional 字段优化 | 🟡 |
+| WebSocket 实时解析状态推送 | 当前靠前端轮询 | 🔴 |
 
 ---
 
 ## 六、上次工作到的位置
 
-**刚完成**：域名备案 + HTTPS + 支付宝支付上线（2026-06-15）
+**刚完成**（2026-08-13）：v0.6.1 生产修复批次全部上线
+- HTTPS 事故恢复 + nginx 443 配置进 git（永久生效）
+- 备案号（沪ICP备2026028917号-1）上线
+- 部署流水线加固：先停容器再构建 + 超时 30m/45m + 健康检查 24 次重试
+- 前端：会话过期自动跳登录、错误提示具体信息优先、favicon
+- 积分不足取消充值后正确回到原页面（step 复位）
+- 登录状态修复：/auth/me 移出登录限流 + 导航改 Link 客户端跳转
+- 登录点击后直接跳转（Link 预取缓存污染修复：prefetch={false} + no-store）
+- 退出登录后积分显示板即时消失（PointsBalance 补 loggedIn 条件）
+- 服务器与 `cvbuilder2.0` main 一致；nginx 限流/缓存层已随部署上线
+
+### 下一阶段
+
+- **P0：v0.5.2 安全加固上线**（16 个未推送提交；先配 `TURNSTILE_SECRET_KEY` 再推送部署）
+- 密码找回、支付测试
+- **UI/UX 后续渐进式优化**：详见 [2026-08-19-ui-ux-follow-up-optimization.md](docs/superpowers/plans/2026-08-19-ui-ux-follow-up-optimization.md)。当前先处理 P0 入口纠偏和 P1 分析页交互，全部本地验收后再考虑推送。
+
+### v0.6.0 下一阶段
+
+- v0.6.0 基础 UI 优化已完成；后续纠偏、移动端和无障碍事项转入独立实施计划，避免与历史版本记录混在一起。
 
 ### v0.5.0 详细变更
 
@@ -187,7 +281,7 @@ Worker (BullMQ) → 简历解析队列
 
 - **GitHub Actions**：两个 workflow 文件
   - `ci.yml`：推送到非 main 分支时自动类型检查 + Docker 构建验证
-  - `deploy.yml`：手动触发（workflow_dispatch），SSH 到 ECS 执行 `git pull` + `docker compose up -d --build` + 健康检查
+  - `deploy.yml`：手动触发（workflow_dispatch），SSH 到 ECS 执行 `git fetch + reset --hard origin/main` → **先停全部容器** → `docker compose up -d --build` → 健康检查（SSH 命令超时 30m、job 45m、健康检查重试 24 次；构建期间站点停机）
 - **服务器**：阿里云 ECS (Ubuntu 22.04)，IP `8.160.123.149`
   - 代码路径 `/opt/cvbuilder`，已初始化为 git 仓库，关联 `github.com:fitback/cvbuilder2.0`
   - SSH 部署密钥已配置（`~/.ssh/github-deploy` → GitHub Deploy Key）
@@ -273,9 +367,9 @@ Worker (BullMQ) → 简历解析队列
 
 **下一步建议**：
 1. ~~推进部署上线（买服务器、备案、配置生产环境）~~ ← 已完成
-2. 安全加固：缓存 + 防爬虫 + 防 DDoS（v0.5.2）← 当前工作
+2. ~~安全加固：缓存 + 防爬虫 + 防 DDoS（v0.5.2）~~ ← ✅ 已完成
 3. 继续完善功能（密码找回、支付测试）
-4. 打磨细节（更多 UX 优化、性能调优）
+4. UI/UX 全面优化（v0.6.0）← 当前工作
 
 ---
 
@@ -311,3 +405,33 @@ Worker (BullMQ) → 简历解析队列
 | 2026-07-29 | 全部 13 项实施完成 |
 | 2026-07-29 | 修复 proxy_no_cache 导致的所有缓存失效 Bug |
 | 2026-07-29 | 修复 analyze.service.ts 中 cache.del 在 try/catch 内导致的积分误退 Bug |
+| 2026-08-13 | ⚠️ 部署状态：nginx 层（限流/缓存）已随 HTTPS 修复上线；**应用层（helmet/ValidationPipe/Throttle/Turnstile/Redis 缓存）仍在本地 main 未推送**，上线前需服务器配置 `TURNSTILE_SECRET_KEY` |
+| 2026-08-20 | 管理后台新增注册用户记录：管理员可查看完整手机号、角色、积分和注册时间；接口仅管理员可访问，未推送部署 |
+
+---
+
+## 九、UI/UX 全面优化方案（v0.6.0）
+
+> 启动日期：2026-07-29
+> 基于全量页面审计（9 页面 + 8 组件 + DESIGN.md + globals.css），按批次排序
+
+### 实施清单
+
+| 序号 | 批次 | 优先级 | 模块 | 事项 | 状态 |
+|------|------|--------|------|------|------|
+| 1 | 批次 1 | P0 | Dashboard | 删除按钮移动端常显 | ✅ |
+| 2 | 批次 1 | P0 | Toast | 定位规避移动端底部导航：移动端 `top-4` | ✅ |
+| 3 | 批次 1 | P0 | 全局 | 键盘快捷键：`Ctrl+S` 保存、`Ctrl+Enter` 分析/生成 | ✅ |
+| 4 | 批次 1 | P0 | Admin | 表格响应式：充值记录表在 `<768px` 转为卡片布局 | ✅ |
+| 5 | 批次 2 | P1 | Dashboard | 概览统计卡片：简历总数、可分析数、生成数三卡，可点击跳转 | ✅ |
+| 6 | 批次 2 | P1 | 简历编辑 | 分屏实时预览：左表单右 A4 渲染，借鉴 generated 编辑页模式 | ✅ |
+| 7 | 批次 2 | P1 | 分析页 | 信息层级优化：Sticky 分数栏 + 建议进度条 + 排雷按风险分组 + 生成按钮渐入 | ✅ |
+| 8 | 批次 3 | P1 | 分析页 | 建议追踪持久化：`suggestionStatus` 写入 `localStorage` 或后端持久化 | ✅ |
+| 9 | 批次 3 | P1 | 简历编辑 | 解析中骨架细化：parsing 状态展示 6-8 条模拟骨架表单 | ✅ |
+| 10 | 批次 4 | P2 | 导航 | 底部导航 badge：解析中的简历→仪表盘红点，上传中→旋转指示 | ✅ |
+| 11 | 批次 4 | P2 | 表单 | 触控优化：移动端 `font-size: 16px` 防 iOS zoom；≥44px 触控区域 | ✅ |
+| 12 | 批次 4 | P2 | 上传 | 拖拽手势反馈：文件类型图标 + 即时校验 + 放手呼吸动画 | ✅ |
+| 13 | 批次 5 | P3 | 全局 | 动效系统：列表入场 stagger、弹窗 backdrop blur、数字 transition | ✅ |
+| 14 | 批次 5 | P3 | 全局 | 空状态优化：Dashboard/JD/Generated 空状态加插画与更紧密引导 | ✅ |
+| 15 | 批次 5 | P3 | 全局 | 保存状态指示器：sidebar 底部全局保存状态栏 | ✅ |
+| 16 | 批次 6 | P3 | 全局 | 暗色模式：Tailwind v4 class-based，跟随系统，sidebar 切换按钮 | ✅ |

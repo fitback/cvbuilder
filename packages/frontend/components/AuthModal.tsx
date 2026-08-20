@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "./Button";
 import { User, X, Sparkles, AlertCircle, Check } from "./icons";
 import { setToken, API_BASE } from "../lib/auth";
+import { useModalA11y } from "../lib/useModalA11y";
 
 const API = API_BASE;
 
@@ -15,6 +16,10 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
   const [error, setError] = useState("");
   const [giftNotice, setGiftNotice] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const handleClose = useCallback(() => {
+    if (!loading) onClose();
+  }, [loading, onClose]);
+  const dialogRef = useModalA11y(true, handleClose);
 
   async function submit() {
     setError("");
@@ -52,20 +57,25 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void; o
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
-      onClick={onClose}
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]"
+      onClick={handleClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
         className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl animate-[slideUp_200ms_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <User size={20} className="text-[#B75C3A]" />
-            <h3 className="text-lg font-semibold text-[#1A1A1A]">{tab === "login" ? "登录" : "注册"}</h3>
+            <h3 id="auth-modal-title" className="text-lg font-semibold text-[#1A1A1A]">{tab === "login" ? "登录" : "注册"}</h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={loading}
             className="p-1.5 rounded-lg hover:bg-[#F5F4F2] active:scale-[0.95] transition-all duration-150"
             aria-label="关闭"
           >

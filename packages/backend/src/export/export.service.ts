@@ -1,4 +1,4 @@
-import { Injectable, HttpException } from "@nestjs/common";
+import { Injectable, HttpException, OnApplicationShutdown } from "@nestjs/common";
 import { ErrorCode } from "@cvbuilder/shared";
 import { marked } from "marked";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -130,20 +130,39 @@ function markdownToDocxElements(markdown: string): Paragraph[] {
   return elements;
 }
 
-let puppeteer: any = null;
+let puppeteerModule: any = null;
+let browserInstance: any = null;
+
 async function getBrowser() {
-  if (!puppeteer) {
-    puppeteer = await import("puppeteer-core");
+  if (browserInstance) {
+    try {
+      // Verify the browser process is still alive
+      const wsEndpoint = browserInstance.wsEndpoint();
+      if (wsEndpoint) return browserInstance;
+    } catch {
+      browserInstance = null;
+    }
   }
-  return puppeteer.launch({
+  if (!puppeteerModule) {
+    puppeteerModule = await import("puppeteer-core");
+  }
+  browserInstance = await puppeteerModule.launch({
     executablePath: PUPPETEER_EXECUTABLE,
     headless: true,
     args: ["--no-sandbox", "--disable-gpu"],
   });
+  return browserInstance;
 }
 
 @Injectable()
-export class ExportService {
+export class ExportService implements OnApplicationShutdown {
+  async onApplicationShutdown() {
+    if (browserInstance) {
+      try { await browserInstance.close(); } catch { /* ignore */ }
+      browserInstance = null;
+    }
+  }
+
   async exportPdf(markdown: string): Promise<Buffer> {
     if (!markdown || markdown.trim().length < 50) {
       throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "内容太短" }, 400);
@@ -155,7 +174,7 @@ export class ExportService {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 10000 });
       const pdf = await page.pdf({ format: "A4", printBackground: true });
-      await browser.close();
+      await page.close();
       return Buffer.from(pdf);
     } catch (err) {
       throw new HttpException({ code: ErrorCode.AI_SERVICE_UNAVAILABLE, message: "PDF生成失败" }, 500);

@@ -4,6 +4,10 @@ import { ErrorCode } from "@cvbuilder/shared";
 import * as bcrypt from "bcryptjs";
 import { JwtService } from "@nestjs/jwt";
 
+function maskPhone(phone: string): string {
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -14,6 +18,7 @@ export class AuthService {
   ) {}
 
   private async verifyTurnstile(token: string): Promise<boolean> {
+    if (process.env.TURNSTILE_SECRET_KEY?.startsWith("1x00000000")) return true;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
@@ -52,13 +57,16 @@ export class AuthService {
       throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "该手机号已注册" }, 409);
     }
 
-    const user = await this.prisma.user.create({
-      data: { phone, passwordHash: bcrypt.hashSync(password, 10), points: 50 },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: { phone, passwordHash: bcrypt.hashSync(password, 10), points: 50 },
+      });
+      await tx.pointTransaction.create({
+        data: { userId: u.id, type: "credit", amount: 50, balance: 50, description: "新用户赠送" },
+      });
+      return u;
     });
-    await this.prisma.pointTransaction.create({
-      data: { userId: user.id, type: "credit", amount: 50, balance: 50, description: "新用户赠送" },
-    });
-    this.logger.log(`User registered: ${user.id} phone=${phone}`);
+    this.logger.log(`User registered: ${user.id} phone=${maskPhone(phone)}`);
     const token = this.jwt.sign({ sub: user.id });
     return { userId: user.id, token };
   }
@@ -70,7 +78,7 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-      this.logger.warn(`Login failed: phone=${phone}`);
+      this.logger.warn(`Login failed: phone=${maskPhone(phone)}`);
       throw new HttpException({ code: ErrorCode.UNAUTHORIZED, message: "手机号或密码错误" }, 401);
     }
     this.logger.log(`User logged in: ${user.id}`);
@@ -83,9 +91,22 @@ export class AuthService {
     if (!user) throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "用户不存在" }, 404);
     return {
       id: user.id,
-      phone: user.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2"),
+      phone: maskPhone(user.phone),
       points: user.points,
       role: user.role,
     };
+  }
+
+  async getUsers() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        phone: true,
+        role: true,
+        points: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 }

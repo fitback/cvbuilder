@@ -17,9 +17,21 @@ export default function UploadPage() {
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ name: string; ext: string; valid: boolean; reason?: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
+
+  function validateFile(file: File): { valid: boolean; reason?: string } {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!ext || !["pdf", "docx"].includes(ext)) {
+      return { valid: false, reason: "仅支持 PDF 和 Word 格式" };
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return { valid: false, reason: "文件大小不能超过 5MB" };
+    }
+    return { valid: true };
+  }
 
   const triggerError = useCallback((msg: string) => {
     setError(msg);
@@ -31,16 +43,16 @@ export default function UploadPage() {
   async function uploadFile(file: File) {
     setError("");
     setFileName(file.name);
+    setPendingFile(null);
 
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!ext || !["pdf", "docx"].includes(ext)) {
-      triggerError("仅支持 PDF 和 Word 格式");
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setPendingFile({ name: file.name, ext: file.name.split(".").pop()?.toLowerCase() || "", valid: false, reason: validation.reason });
+      triggerError(validation.reason!);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      triggerError("文件大小不能超过 5MB");
-      return;
-    }
+
+    setPendingFile({ name: file.name, ext: file.name.split(".").pop()?.toLowerCase() || "", valid: true });
 
     setStep("uploading");
     try {
@@ -54,7 +66,6 @@ export default function UploadPage() {
         return;
       }
       setStep("parsing");
-      // Brief delay so the user sees the "parsing" step
       await new Promise((r) => setTimeout(r, 800));
       setStep("done");
       toast("上传成功！正在跳转...", "success");
@@ -64,6 +75,24 @@ export default function UploadPage() {
       setStep("idle");
       triggerError("上传失败，请重试");
     }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const validation = validateFile(file);
+    setPendingFile({ name: file.name, ext: file.name.split(".").pop()?.toLowerCase() || "", valid: validation.valid, reason: validation.reason });
+    if (validation.valid) uploadFile(file);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validateFile(file);
+    setPendingFile({ name: file.name, ext: file.name.split(".").pop()?.toLowerCase() || "", valid: validation.valid, reason: validation.reason });
+    if (validation.valid) uploadFile(file);
   }
 
   return (
@@ -86,14 +115,14 @@ export default function UploadPage() {
         className={`relative border-2 border-dashed rounded-xl p-14 text-center cursor-pointer
           transition-all duration-200 ease-out
           ${dragOver
-            ? "border-[#B75C3A] bg-[#B75C3A]/5 scale-[1.01]"
+            ? "border-[#B75C3A] bg-[#B75C3A]/5 scale-[1.01] animate-[breathe_1.5s_ease-in-out_infinite]"
             : "border-[#D4D4D4] hover:border-[#B75C3A]/50 hover:bg-[#FAFAF9]"
           }
           ${shake ? "animate-[shake_400ms_ease-in-out]" : ""}
           ${step !== "idle" ? "pointer-events-none opacity-60" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
+        onDragOver={(e) => { e.preventDefault(); const f = e.dataTransfer.items[0]; if (f) setPendingFile({ name: f.type.includes("pdf") ? "PDF 文件" : "Word 文件", ext: "", valid: true }); setDragOver(true); }}
+        onDragLeave={() => { setDragOver(false); if (step === "idle") setPendingFile(null); }}
+        onDrop={handleDrop}
         onClick={() => step === "idle" && fileRef.current?.click()}
         role="button"
         tabIndex={0}
@@ -102,29 +131,41 @@ export default function UploadPage() {
       >
         <div className={`mb-5 transition-transform duration-200 ${dragOver ? "scale-110" : ""}`}>
           {step === "idle" ? (
-            <Upload size={40} className="mx-auto text-[#B75C3A]/60" />
-          ) : step === "uploading" ? (
-            <Spinner size={40} className="mx-auto text-[#B75C3A] animate-spin" />
-          ) : step === "parsing" ? (
+            pendingFile ? (
+              pendingFile.valid ? (
+                <FileText size={40} className={`mx-auto ${pendingFile.ext === "pdf" ? "text-[#C75B5B]" : "text-[#2D7AB5]"}`} />
+              ) : (
+                <AlertCircle size={40} className="mx-auto text-[#C75B5B]" />
+              )
+            ) : (
+              <Upload size={40} className="mx-auto text-[#B75C3A]/60" />
+            )
+          ) : step === "uploading" || step === "parsing" ? (
             <Spinner size={40} className="mx-auto text-[#B75C3A] animate-spin" />
           ) : (
             <Check size={40} className="mx-auto text-[#5B8C5A]" />
           )}
         </div>
         <p className="text-sm text-[#2D2D2D] mb-2 font-medium">
-          {step === "idle" ? "拖拽文件到此处，或点击上传" :
-           step === "uploading" ? "正在上传..." :
+          {step === "idle" ? (
+            pendingFile ? (
+              pendingFile.valid ? `准备上传：${pendingFile.name}` : pendingFile.reason
+            ) : "拖拽文件到此处，或点击上传"
+          ) : step === "uploading" ? "正在上传..." :
            step === "parsing" ? "正在解析简历内容..." :
            "上传完成"}
         </p>
-        <p className="text-xs text-[#9E9E9E]">支持 PDF 和 Word 格式，最大 5MB</p>
+        {step === "idle" && pendingFile && !pendingFile.valid && (
+          <p className="text-xs text-[#C75B5B] mt-2">{pendingFile.reason}</p>
+        )}
+        <p className="text-xs text-[#9E9E9E] mt-1">支持 PDF 和 Word 格式，最大 5MB</p>
         <input
           ref={fileRef}
           type="file"
           accept=".pdf,.docx"
           className="hidden"
           aria-label="选择简历文件"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); }}
+          onChange={handleFileSelect}
         />
       </div>
 

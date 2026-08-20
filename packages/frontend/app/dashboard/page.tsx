@@ -6,6 +6,8 @@ import { Button } from "../../components/Button";
 import { FileText, Upload, Trash2, ChevronRight, AlertCircle, RefreshCw } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { apiFetch, API_BASE } from "../../lib/auth";
+import { AnimatedNumber } from "../../components/AnimatedNumber";
+import { useModalA11y } from "../../lib/useModalA11y";
 
 const API = API_BASE;
 
@@ -18,6 +20,7 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
+  const deleteDialogRef = useModalA11y(Boolean(deleteTarget), () => setDeleteTarget(null));
 
   const fetchResumes = async () => {
     try {
@@ -92,8 +95,8 @@ export default function DashboardPage() {
 
   function getStatusTag(r: ResumeItem) {
     const status = r.parseStatus;
-    const count = (r as any).analysisCount ?? 0;
-    const errMsg = (r as any).parseResult?.message;
+    const count = r.analysisCount ?? 0;
+    const errMsg = (r as { parseResult?: { message?: string } }).parseResult?.message;
     const stale = r.createdAt && (Date.now() - new Date(r.createdAt).getTime() > 2 * 60 * 1000);
 
     if (status === "parsed") {
@@ -124,14 +127,45 @@ export default function DashboardPage() {
     );
   }
 
+  const parsedCount = resumes.filter((r) => r.parseStatus === "parsed").length;
+  const firstParsedResume = resumes.find((r) => r.parseStatus === "parsed");
+
   return (
     <div className="animate-[slideUp_300ms_ease-out]">
+      {/* Stats cards */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <a href="/upload" className="block p-4 bg-white border border-[#EBEBEB] rounded-xl hover:border-[#D4D4D4] hover:shadow-sm transition-all duration-200 active:scale-[0.99] animate-[staggerIn_300ms_ease-out_both]">
+          <div className="text-xs text-[#9E9E9E] mb-1">简历总数</div>
+          <div className="text-2xl font-bold text-[#2D2D2D]"><AnimatedNumber value={resumes.length} /></div>
+          <div className="text-[10px] text-[#6B6B6B] mt-1">
+            {resumes.length > 0 ? `${parsedCount} 份可分析` : "上传第一份简历"}
+          </div>
+        </a>
+        <a href="/jobs" className="block p-4 bg-white border border-[#EBEBEB] rounded-xl hover:border-[#D4D4D4] hover:shadow-sm transition-all duration-200 active:scale-[0.99] animate-[staggerIn_300ms_ease-out_both]">
+          <div className="text-xs text-[#9E9E9E] mb-1">目标岗位</div>
+          <div className="text-2xl font-bold text-[#2D2D2D]"><AnimatedNumber value={jdCount} /></div>
+          <div className="text-[10px] text-[#6B6B6B] mt-1">
+            {jdCount > 0 ? "可开始匹配分析" : "创建第一个 JD"}
+          </div>
+        </a>
+        <a
+          href={generatedResumes.length > 0 ? "/generated" : "/upload"}
+          className="block p-4 bg-white border border-[#EBEBEB] rounded-xl hover:border-[#D4D4D4] hover:shadow-sm transition-all duration-200 active:scale-[0.99] animate-[staggerIn_300ms_ease-out_both]"
+        >
+          <div className="text-xs text-[#9E9E9E] mb-1">生成简历</div>
+          <div className="text-2xl font-bold text-[#2D2D2D]"><AnimatedNumber value={generatedResumes.length} /></div>
+          <div className="text-[10px] text-[#6B6B6B] mt-1">
+            {generatedResumes.length > 0 ? "可编辑或导出" : "完成分析后生成"}
+          </div>
+        </a>
+      </div>
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-xl font-semibold text-[#1A1A1A]">我的简历</h2>
           <p className="text-sm text-[#6B6B6B] mt-1">
             共 {resumes.length} 份简历
-            {resumes.filter((r) => r.parseStatus === "parsed").length > 0 && ` · ${resumes.filter((r) => r.parseStatus === "parsed").length} 份可分析`}
+            {parsedCount > 0 && ` · ${parsedCount} 份可分析`}
           </p>
         </div>
         <a href="/upload"><Button variant="primary" icon={<Upload size={16} />}>上传新简历</Button></a>
@@ -140,18 +174,13 @@ export default function DashboardPage() {
       {(resumes.length === 0 || jdCount === 0) ? (
         <OnboardingGuide resumes={resumes.length} jds={jdCount} />
       ) : (
-        <div className="flex items-center gap-3 mb-4">
-          <a href={`/resumes/${resumes.find(r => r.parseStatus === "parsed")?.id ?? resumes[0]?.id}`}>
-            <Button variant="primary" size="sm" icon={<FileText size={14} />}>开始分析</Button>
-          </a>
-          <span className="text-xs text-[#9E9E9E]">已有简历和 JD，可以开始匹配分析</span>
-        </div>
+        <AnalysisGuide resumeId={firstParsedResume?.id ?? null} />
       )}
 
       {resumes.length > 0 && (
         <div className="space-y-2">
-          {resumes.map((r) => (
-            <div key={r.id} className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg transition-all duration-200 ease-out hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px] active:scale-[0.995]">
+          {resumes.map((r, i) => (
+            <div key={r.id} className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg transition-all duration-200 ease-out hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px] active:scale-[0.995] animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${i * 60}ms` }}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="shrink-0 w-10 h-10 rounded-lg bg-[#F5F4F2] flex items-center justify-center group-hover:bg-[#EBEBEB] transition-colors duration-200">
                   <FileText size={18} className="text-[#6B6B6B]" />
@@ -168,28 +197,36 @@ export default function DashboardPage() {
                 {r.parseStatus === "parsed" && (
                   <a href={`/resumes/${r.id}`}><Button variant="secondary" size="sm" icon={<FileText size={14} />}>解析</Button></a>
                 )}
-                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} loading={deleting === r.id} onClick={() => confirmDelete(r.id, r.fileNameOriginal ?? "未命名")} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" aria-label={`删除 ${r.fileNameOriginal}`}>删除</Button>
+                <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} loading={deleting === r.id} onClick={() => confirmDelete(r.id, r.fileNameOriginal ?? "未命名")} aria-label={`删除 ${r.fileNameOriginal}`}>删除</Button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="pt-8">
+      <div id="generated-resumes" className="pt-8">
         <div className="flex justify-between items-center mb-4">
           <div><h3 className="text-lg font-semibold text-[#1A1A1A]">生成的简历</h3><p className="text-sm text-[#6B6B6B] mt-0.5">共 {generatedResumes.length} 份</p></div>
         </div>
         {generatedResumes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#D4D4D4] rounded-xl">
-            <FileText size={48} className="text-[#D4D4D4] mb-3" />
+          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#D4D4D4] rounded-xl animate-[fadeIn_300ms_ease-out]">
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" className="mb-4 opacity-60">
+              <rect x="10" y="4" width="60" height="48" rx="6" stroke="#D4D4D4" strokeWidth="2" fill="#FAFAF9" />
+              <rect x="20" y="14" width="40" height="3" rx="1.5" fill="#D4D4D4" />
+              <rect x="20" y="22" width="32" height="3" rx="1.5" fill="#EBEBEB" />
+              <rect x="20" y="30" width="36" height="3" rx="1.5" fill="#EBEBEB" />
+              <path d="M52 32l8 8 12-14" stroke="#B75C3A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+              <circle cx="68" cy="56" r="4" fill="#C7953A" opacity="0.25" />
+              <circle cx="76" cy="52" r="3" fill="#C7953A" opacity="0.2" />
+            </svg>
             <h3 className="text-base font-medium text-[#1A1A1A] mb-1">还没有生成的简历</h3>
-            <p className="text-sm text-[#6B6B6B] mb-4">完成分析后，使用 AI 生成优化简历</p>
+            <p className="text-sm text-[#6B6B6B] mb-4 text-center max-w-xs">上传简历并分析后，AI 会按岗位要求自动生成一份优化版简历</p>
             <a href="/upload"><Button variant="secondary" size="sm" icon={<Upload size={14} />}>上传简历开始</Button></a>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {generatedResumes.map((r) => (
-              <a key={r.id} href={`/generated/${r.id}`} className="block p-4 bg-white border border-[#EBEBEB] rounded-lg transition-all duration-200 ease-out hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px] active:scale-[0.995]">
+            {generatedResumes.map((r, i) => (
+              <a key={r.id} href={`/generated/${r.id}`} className="block p-4 bg-white border border-[#EBEBEB] rounded-lg transition-all duration-200 ease-out hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[1px] active:scale-[0.995] animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${(resumes.length + i) * 60}ms` }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0"><div className="text-sm font-medium text-[#2D2D2D] truncate">{r.name}</div><div className="text-xs text-[#9E9E9E] mt-1">{new Date(r.createdAt).toLocaleDateString("zh-CN")}</div></div>
                   <ChevronRight size={16} className="shrink-0 text-[#D4D4D4] mt-0.5" />
@@ -203,15 +240,42 @@ export default function DashboardPage() {
 
       {/* Delete confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]" onClick={() => setDeleteTarget(null)}>
+          <div ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="dashboard-delete-title" className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 id="dashboard-delete-title" className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
             <p className="text-sm text-[#6B6B6B] mb-6">确定要删除「{deleteTarget.name}」吗？此操作不可撤销。</p>
             <div className="flex gap-3 justify-end">
               <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>取消</Button>
               <Button variant="danger" size="sm" icon={<Trash2 size={14} />} loading={deleting !== null} onClick={handleDelete}>确认删除</Button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalysisGuide({ resumeId }: { resumeId: string | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-4 mb-4 p-4 bg-white border border-[#EBEBEB] rounded-xl">
+      <div className="flex items-center gap-2 text-xs text-[#5B8C5A]">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#5B8C5A] text-white font-bold">✓</span>
+        <span>上传简历</span>
+      </div>
+      <div className="hidden sm:block w-8 h-px bg-[#D4D4D4]" />
+      <div className="flex items-center gap-2 text-xs text-[#5B8C5A]">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#5B8C5A] text-white font-bold">✓</span>
+        <span>创建岗位</span>
+      </div>
+      <div className="hidden sm:block w-8 h-px bg-[#D4D4D4]" />
+      {resumeId ? (
+        <a href={`/analyze/${resumeId}`} className="ml-auto">
+          <Button variant="primary" size="sm" icon={<FileText size={14} />}>开始分析</Button>
+        </a>
+      ) : (
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="secondary" size="sm" icon={<FileText size={14} />} disabled>开始分析</Button>
+          <span className="text-xs text-[#9E9E9E]">等待简历解析完成</span>
         </div>
       )}
     </div>

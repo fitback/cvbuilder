@@ -4,6 +4,7 @@ import { AuthService } from "./auth.service";
 import { AuthGuard } from "./auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import { RegisterDto, LoginDto } from "./auth.dto";
+import { AdminGuard } from "./admin.guard";
 
 @Controller("auth")
 @UseInterceptors(ApiResponseInterceptor)
@@ -26,5 +27,11 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async getMe(@Req() req: any) {
     return this.authService.getMe(req.userId);
+  }
+
+  @Get("users")
+  @UseGuards(AuthGuard, AdminGuard)
+  async getUsers() {
+    return this.authService.getUsers();
   }
 }

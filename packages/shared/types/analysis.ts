@@ -22,6 +22,10 @@ export interface AnalysisResult {
   jdCoreDecoding: JdCoreDecoding[];
   optimizationSuggestions: OptimizationSuggestion[];
   detailChecklist: DetailChecklist[];
+  /** 生成/保存的简历 Markdown (set by generate service) */
+  generatedResume?: string;
+  /** 用户编辑后的简历 Markdown (set by saveEdited) */
+  editedResume?: string;
 }
 
 export interface AnalyzeRequest {

@@ -33,7 +33,7 @@ export class HealthService {
     // 2. Redis (BullMQ)
     try {
       const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-      checks.redis = { status: "ok", message: `Redis configured: ${redisUrl}` };
+      checks.redis = { status: "ok", message: "Redis configured" };
     } catch {
       checks.redis = { status: "down", message: "Redis not configured" };
     }

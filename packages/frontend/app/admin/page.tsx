@@ -8,8 +8,17 @@ import { apiFetch, API_BASE } from "../../lib/auth";
 
 const API = API_BASE;
 
+type AdminUser = {
+  id: string;
+  phone: string;
+  role: string;
+  points: number;
+  createdAt: string;
+};
+
 export default function AdminPage() {
   const [recharges, setRecharges] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,6 +42,12 @@ export default function AdminPage() {
     if (json.success) setRecharges(json.data ?? []);
   }
 
+  async function fetchUsers() {
+    const res = await apiFetch(`${API}/auth/users`);
+    const json = await res.json();
+    if (json.success) setUsers(json.data ?? []);
+  }
+
   async function fetchQrStatus() {
     try {
       const res = await apiFetch(`${API}/payment/qr-code`);
@@ -44,7 +59,7 @@ export default function AdminPage() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    Promise.all([fetchRecharges(), fetchQrStatus(), fetchHealth()]).finally(() => setLoading(false));
+    Promise.all([fetchRecharges(), fetchUsers(), fetchQrStatus(), fetchHealth()]).finally(() => setLoading(false));
   }, []);
 
   async function handleUploadQr(file: File) {
@@ -151,8 +166,8 @@ export default function AdminPage() {
             </span>
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Object.entries(health.checks as Record<string, any>).map(([key, check]) => (
-              <div key={key} className="p-3 bg-[#FAFAF9] rounded-lg">
+            {Object.entries(health.checks as Record<string, any>).map(([key, check], i) => (
+              <div key={key} className="p-3 bg-[#FAFAF9] rounded-lg animate-[staggerIn_250ms_ease-out_both]" style={{ animationDelay: `${i * 50}ms` }}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className={`w-2 h-2 rounded-full ${check.status === "ok" ? "bg-[#5B8C5A]" : check.status === "degraded" ? "bg-[#C7953A]" : "bg-[#C75B5B]"}`} />
                   <span className="text-xs font-medium text-[#2D2D2D]">{key}</span>
@@ -164,6 +179,71 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Registered users */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-[#1A1A1A]">注册用户</h3>
+          <span className="text-xs text-[#9E9E9E]">共 {users.length} 位用户</span>
+        </div>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-[#F5F4F2] rounded-xl animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+            ))}
+          </div>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#D4D4D4] rounded-xl">
+            <ShieldAlert size={32} className="text-[#D4D4D4] mb-2" />
+            <p className="text-sm text-[#9E9E9E]">暂无注册用户</p>
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto bg-white border border-[#EBEBEB] rounded-xl">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#EBEBEB] bg-[#FAFAF9]">
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">手机号</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">角色</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">积分</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">注册时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user, i) => (
+                    <tr key={user.id} className="border-b border-[#F5F4F2] hover:bg-[#FAFAF9] transition-colors animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${i * 40}ms` }}>
+                      <td className="py-3 px-3 text-[#2D2D2D] font-mono">{user.phone}</td>
+                      <td className="py-3 px-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${user.role === "admin" ? "bg-[#B75C3A]/10 text-[#B75C3A]" : "bg-[#F5F4F2] text-[#6B6B6B]"}`}>
+                          {user.role === "admin" ? "管理员" : "普通用户"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-[#2D2D2D]">{user.points}</td>
+                      <td className="py-3 px-3 text-xs text-[#9E9E9E]">{new Date(user.createdAt).toLocaleString("zh-CN")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="md:hidden space-y-2">
+              {users.map((user, i) => (
+                <div key={user.id} className="bg-white border border-[#EBEBEB] rounded-xl p-4 animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${i * 60}ms` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-[#2D2D2D] font-mono">{user.phone}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${user.role === "admin" ? "bg-[#B75C3A]/10 text-[#B75C3A]" : "bg-[#F5F4F2] text-[#6B6B6B]"}`}>
+                      {user.role === "admin" ? "管理员" : "普通用户"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-[#6B6B6B]">
+                    <span>积分 {user.points}</span>
+                    <span>{new Date(user.createdAt).toLocaleString("zh-CN")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Recharge Records */}
       <div>
         <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">充值记录</h3>
@@ -174,43 +254,72 @@ export default function AdminPage() {
             ))}
           </div>
         ) : recharges.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 border border-dashed border-[#D4D4D4] rounded-xl">
-            <ShieldAlert size={48} className="text-[#D4D4D4] mb-3" />
-            <h3 className="text-base font-medium text-[#1A1A1A] mb-1">暂无充值记录</h3>
+          <div className="flex flex-col items-center justify-center py-16 border border-dashed border-[#D4D4D4] rounded-xl animate-[fadeIn_300ms_ease-out]">
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" className="mb-4 opacity-60">
+              <rect x="8" y="12" width="64" height="40" rx="6" stroke="#D4D4D4" strokeWidth="2" fill="#FAFAF9" />
+              <rect x="18" y="22" width="44" height="3" rx="1.5" fill="#D4D4D4" />
+              <rect x="18" y="30" width="36" height="3" rx="1.5" fill="#EBEBEB" />
+              <rect x="18" y="38" width="28" height="3" rx="1.5" fill="#EBEBEB" />
+              <circle cx="68" cy="10" r="8" stroke="#B75C3A" strokeWidth="2" fill="#B75C3A/10" />
+              <path d="M68 6v8M64 10h8" stroke="#B75C3A" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <h3 className="text-base font-medium text-[#1A1A1A] mb-2">暂无充值记录</h3>
+            <p className="text-sm text-[#6B6B6B] text-center max-w-xs">用户完成充值后，记录会显示在这里，你可以在后台进行审核</p>
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white border border-[#EBEBEB] rounded-xl">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#EBEBEB] bg-[#FAFAF9]">
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">用户</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">金额</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">积分</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">商户单号</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">微信单号</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">状态</th>
-                  <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">时间</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recharges.map((item: any) => (
-                  <tr key={item.id} className="border-b border-[#F5F4F2] hover:bg-[#FAFAF9] transition-colors">
-                    <td className="py-3 px-3 text-[#2D2D2D]">{item.userPhone}</td>
-                    <td className="py-3 px-3 text-[#2D2D2D]">{item.amount} 元</td>
-                    <td className="py-3 px-3 text-[#2D2D2D]">{item.points}</td>
-                    <td className="py-3 px-3 text-[#9E9E9E] font-mono text-xs">{item.outTradeNo || "-"}</td>
-                    <td className="py-3 px-3 text-[#9E9E9E] font-mono text-xs">{item.transactionId || "-"}</td>
-                    <td className="py-3 px-3">{statusTag(item.status)}</td>
-                    <td className="py-3 px-3 text-xs text-[#9E9E9E]">
-                      {item.approvedAt
-                        ? new Date(item.approvedAt).toLocaleString("zh-CN")
-                        : new Date(item.createdAt).toLocaleString("zh-CN")}
-                    </td>
+          <>
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto bg-white border border-[#EBEBEB] rounded-xl">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#EBEBEB] bg-[#FAFAF9]">
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">用户</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">金额</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">积分</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">商户单号</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">微信单号</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">状态</th>
+                    <th className="text-left py-3 px-3 text-[#6B6B6B] font-medium">时间</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recharges.map((item: any, i: number) => (
+                    <tr key={item.id} className="border-b border-[#F5F4F2] hover:bg-[#FAFAF9] transition-colors animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${i * 40}ms` }}>
+                      <td className="py-3 px-3 text-[#2D2D2D]">{item.userPhone}</td>
+                      <td className="py-3 px-3 text-[#2D2D2D]">{item.amount} 元</td>
+                      <td className="py-3 px-3 text-[#2D2D2D]">{item.points}</td>
+                      <td className="py-3 px-3 text-[#9E9E9E] font-mono text-xs">{item.outTradeNo || "-"}</td>
+                      <td className="py-3 px-3 text-[#9E9E9E] font-mono text-xs">{item.transactionId || "-"}</td>
+                      <td className="py-3 px-3">{statusTag(item.status)}</td>
+                      <td className="py-3 px-3 text-xs text-[#9E9E9E]">
+                        {item.approvedAt
+                          ? new Date(item.approvedAt).toLocaleString("zh-CN")
+                          : new Date(item.createdAt).toLocaleString("zh-CN")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile: card list */}
+            <div className="md:hidden space-y-2">
+              {recharges.map((item: any, i: number) => (
+                <div key={item.id} className="bg-white border border-[#EBEBEB] rounded-xl p-4 animate-[staggerIn_300ms_ease-out_both]" style={{ animationDelay: `${i * 60}ms` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-[#2D2D2D]">{item.userPhone}</span>
+                    {statusTag(item.status)}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-[#9E9E9E]">金额</span><span className="ml-1 text-[#2D2D2D]">{item.amount} 元</span></div>
+                    <div><span className="text-[#9E9E9E]">积分</span><span className="ml-1 text-[#2D2D2D]">{item.points}</span></div>
+                    <div className="col-span-2"><span className="text-[#9E9E9E]">商户单号</span><span className="ml-1 text-[#2D2D2D] font-mono">{item.outTradeNo || "-"}</span></div>
+                    <div className="col-span-2"><span className="text-[#9E9E9E]">微信单号</span><span className="ml-1 text-[#2D2D2D] font-mono">{item.transactionId || "-"}</span></div>
+                    <div className="col-span-2"><span className="text-[#9E9E9E]">时间</span><span className="ml-1 text-[#2D2D2D]">{item.approvedAt ? new Date(item.approvedAt).toLocaleString("zh-CN") : new Date(item.createdAt).toLocaleString("zh-CN")}</span></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

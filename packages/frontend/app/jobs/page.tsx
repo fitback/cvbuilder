@@ -5,6 +5,7 @@ import { JobDescriptionItem } from "@cvbuilder/shared";
 import { Button } from "../../components/Button";
 import { Briefcase, Plus, Trash2, AlertCircle, RefreshCw } from "../../components/icons";
 import { useToast } from "../../components/Toast";
+import { useModalA11y } from "../../lib/useModalA11y";
 import { apiFetch, API_BASE } from "../../lib/auth";
 
 const API = API_BASE;
@@ -20,6 +21,7 @@ export default function JobsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
+  const deleteDialogRef = useModalA11y(Boolean(deleteTarget), () => setDeleteTarget(null));
 
   async function fetchJobs() {
     try {
@@ -152,23 +154,31 @@ export default function JobsPage() {
           ))}
         </div>
       ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Briefcase size={56} className="text-[#D4D4D4] mb-4" />
+        <div className="flex flex-col items-center justify-center py-20 animate-[fadeIn_300ms_ease-out]">
+          <svg width="120" height="100" viewBox="0 0 120 100" fill="none" className="mb-5 opacity-70">
+            <rect x="20" y="10" width="80" height="72" rx="8" stroke="#D4D4D4" strokeWidth="2" fill="#FAFAF9" />
+            <rect x="30" y="20" width="60" height="4" rx="2" fill="#D4D4D4" />
+            <rect x="30" y="30" width="50" height="3" rx="1.5" fill="#EBEBEB" />
+            <rect x="30" y="40" width="40" height="3" rx="1.5" fill="#EBEBEB" />
+            <circle cx="70" cy="62" r="14" stroke="#B75C3A" strokeWidth="2" fill="#B75C3A/10" />
+            <path d="M64 62l4 4 8-8" stroke="#B75C3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">还没有岗位描述</h3>
-          <p className="text-sm text-[#6B6B6B] mb-6">创建你的第一个岗位描述，开始匹配分析</p>
+          <p className="text-sm text-[#6B6B6B] mb-6 max-w-sm text-center">粘贴目标岗位的 JD，AI 会逐条对比你的简历，精准匹配优化方向</p>
           <Button variant="primary" icon={<Plus size={16} />} onClick={() => setShowForm(true)}>
             新建 JD
           </Button>
         </div>
       ) : (
         <div className="space-y-1">
-          {jobs.map((j) => (
+          {jobs.map((j, i) => (
             <div
               key={j.id}
               className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg
                          transition-all duration-200 ease-out
                          hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[0.5px]
-                         active:scale-[0.995]"
+                         active:scale-[0.995] animate-[staggerIn_300ms_ease-out_both]"
+              style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="shrink-0 w-10 h-10 rounded-lg bg-[#F5F4F2] flex items-center justify-center
@@ -187,7 +197,7 @@ export default function JobsPage() {
                 size="sm"
                 icon={<Trash2 size={14} />}
                 onClick={() => setDeleteTarget({ id: j.id, title: j.title })}
-                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className="max-md:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 aria-label={`删除 ${j.title}`}
               >
                 删除
@@ -199,9 +209,9 @@ export default function JobsPage() {
 
       {/* Delete confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out]" onClick={() => setDeleteTarget(null)}>
+          <div ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="jobs-delete-title" className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 id="jobs-delete-title" className="text-lg font-semibold text-[#1A1A1A] mb-2">确认删除</h3>
             <p className="text-sm text-[#6B6B6B] mb-6">确定要删除 JD「{deleteTarget.title}」吗？此操作不可撤销。</p>
             <div className="flex gap-3 justify-end">
               <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>取消</Button>

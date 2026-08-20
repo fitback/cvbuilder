@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Controller, Get, Query, Req, UseGuards, UseInterceptors, ParseIntPipe } from "@nestjs/common";
 import { PointsService } from "./points.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
@@ -23,13 +23,13 @@ export class PointsController {
   @Get("transactions")
   async getTransactions(
     @Req() req: any,
-    @Query("page") page?: string,
-    @Query("pageSize") pageSize?: string,
+    @Query("page", new ParseIntPipe({ optional: true })) page?: number,
+    @Query("pageSize", new ParseIntPipe({ optional: true })) pageSize?: number,
   ) {
     return this.pointsService.getTransactions(
       req.userId,
-      page ? parseInt(page) : 1,
-      pageSize ? parseInt(pageSize) : 20,
+      page ?? 1,
+      pageSize ?? 20,
     );
   }
 }

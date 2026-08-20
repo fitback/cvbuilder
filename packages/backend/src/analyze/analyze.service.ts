@@ -2,7 +2,7 @@ import { Injectable, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PointsService } from "../points/points.service";
 import { CacheService } from "../common/cache/cache.service";
-import { AnalyzeRequest, AnalyzeResponse, AnalysisHistoryItem, AnalysisDetail, ErrorCode } from "@cvbuilder/shared";
+import { AnalyzeRequest, AnalyzeResponse, AnalysisHistoryItem, AnalysisDetail, AnalysisResult, ErrorCode } from "@cvbuilder/shared";
 import { CircuitBreaker } from "./circuit-breaker";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -29,7 +29,7 @@ async function callDeepSeek(messages: any[], temperature = 0.3): Promise<any> {
       });
       clearTimeout(timeout);
       if (!res.ok) throw new Error(`DeepSeek returned ${res.status}`);
-      const data = await res.json() as any;
+      const data = await res.json() as { choices: Array<{ message: { content: string } }> };
       return JSON.parse(data.choices[0].message.content);
     } catch (err) {
       lastError = err as Error;
@@ -66,7 +66,7 @@ export class AnalyzeService {
       where: { resumeId_jobDescriptionId: { resumeId: body.resumeId, jobDescriptionId: body.jobDescriptionId } },
     });
     if (existing?.analysisResult) {
-      const result = existing.analysisResult as any;
+      const result = existing.analysisResult as unknown as AnalysisResult;
       return {
         analysisRecordId: existing.id,
         matchScore: existing.matchScore ?? 0,
@@ -146,7 +146,7 @@ export class AnalyzeService {
     });
     return records
       .filter((r: any) => {
-        const ar = r.analysisResult as any;
+        const ar = r.analysisResult as unknown as AnalysisResult;
         return ar?.editedResume;
       })
       .map((r: any) => ({
@@ -165,7 +165,7 @@ export class AnalyzeService {
     if (!record || record.userId !== userId) {
       throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "分析记录不存在" }, 404);
     }
-    const result = record.analysisResult as any;
+    const result = record.analysisResult as unknown as AnalysisResult;
     return {
       analysisRecordId: record.id,
       matchScore: record.matchScore ?? 0,

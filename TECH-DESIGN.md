@@ -46,7 +46,7 @@
 | 后端 | Node.js + NestJS | 架构清晰，模块化 |
 | 数据库 | PostgreSQL | 结构化数据，支持 JSONB |
 | AI 大模型 | DeepSeek（deepseek-chat） | 分析大师 + 生成大师 |
-| 文件解析 | mammoth（.docx）+ pdf-parse（.pdf）| 开源方案 |
+| 文件解析 | mammoth（.docx）+ pdfjs-dist（.pdf）| 开源方案 |
 | Markdown 编辑器 | @uiw/react-md-editor | 轻量，支持预览 |
 | PDF 导出 | Puppeteer（后端渲染）| 样式可控 |
 | 文件存储 | 本地磁盘 + UUID 映射 | 非 public 目录，防直接访问 |
@@ -160,14 +160,17 @@ users ─────┐
 | edited_resume | TEXT | | 用户编辑后的版本 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 分析时间 |
 
-#### edited_resumes（用户编辑版本表）
+#### generated_resumes（用户生成的简历表）
 
 | 字段 | 类型 | 约束 | 说明 |
 |-----|------|------|-----|
-| id | UUID | PK | 编辑版本 ID |
-| analysis_record_id | UUID | FK → analysis_records.id | 关联分析记录 |
+| id | UUID | PK | 生成记录 ID |
+| user_id | UUID | FK → users.id | 用户 ID |
+| name | VARCHAR | NOT NULL, UNIQUE(user_id, name) | 用户自定义名称 |
 | content | TEXT | NOT NULL | Markdown 内容 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 编辑时间 |
+| resume_id | UUID | NULL | 关联的原始简历 ID |
+| analysis_record_id | UUID | NULL | 关联的分析记录 ID |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT NOW() | 最后修改时间 |
 
 ### 3.3 索引设计
@@ -190,22 +193,15 @@ CREATE INDEX idx_analysis_records_jd_id ON analysis_records(job_description_id);
 #### 注册
 ```
 POST /auth/register
-Body: { phone: string, code: string, password: string }
+Body: { phone: string, password: string, turnstileToken: string }
 Response: { userId: uuid, token: jwt }
 ```
 
 #### 登录
 ```
 POST /auth/login
-Body: { phone: string, password: string }
+Body: { phone: string, password: string, turnstileToken: string }
 Response: { userId: uuid, token: jwt }
-```
-
-#### 发送验证码
-```
-POST /auth/send-code
-Body: { phone: string }
-Response: { success: true, message: "验证码已发送" }
 ```
 
 ### 4.2 简历模块
@@ -512,14 +508,16 @@ Puppeteer 渲染页面
 
 | 页面 | 路由 | 说明 |
 |-----|------|------|
-| 登录/注册 | `/auth` | 手机号 + 验证码登录 |
-| 隐私协议 | `/privacy` | 弹窗形式 |
+| 登录/注册 | `/` | 分屏布局：左侧品牌展示，右侧手机号 + 密码登录（Turnstile 人机验证）|
+| 隐私协议 | `/privacy` | 静态页 |
+| 服务条款 | `/terms` | 静态页 |
 | 首页/仪表盘 | `/dashboard` | 简历列表 + 快捷操作 |
 | 上传简历 | `/upload` | 文件上传 + 解析状态 |
 | JD 管理 | `/jobs` | 创建/编辑/删除 JD |
 | 分析页 | `/analyze/:resumeId` | 选择 JD，查看分析结果 |
-| 简历编辑器 | `/edit/:recordId` | Markdown 编辑器 |
-| 导出页 | `/export/:recordId` | PDF 预览 + 导出 |
+| 生成的简历 | `/generated` | 已保存的生成简历列表 |
+| 积分充值 | `/recharge` | 支付二维码 + 充值记录 |
+| 管理后台 | `/admin` | 充值审批 + 支付二维码上传（仅 admin 角色）|
 
 #### 信息架构（每页视觉层级）
 
@@ -539,12 +537,13 @@ Puppeteer 渲染页面
 - JD 列表为主体，新建按钮固定于列表顶部右侧
 - 空态：居中引导「创建你的第一个岗位描述」
 
-**简历编辑器 (`/edit/:recordId`)**
+**生成的简历 (`/generated`)**
+- 已保存的简历列表，可点击进入编辑
+- 空态：居中引导「开始你的第一次简历生成」
+
+**简历编辑器 (`/generated/[id]`)**
 - 左侧 Markdown 编辑区（60%），右侧实时预览区（40%）
 - 顶部工具栏：保存 / 导出 PDF，固定在视口内
-
-**导出页 (`/export/:recordId`)**
-- PDF 预览为主体（居中，A4 比例），导出下载按钮置于预览上方
 
 ### 7.2 核心用户路径状态流
 
