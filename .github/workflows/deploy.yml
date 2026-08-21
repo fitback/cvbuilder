@@ -18,7 +18,7 @@ jobs:
   deploy:
     name: 部署到阿里云 ECS
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     needs: [ci]
     # CI 被跳过时（needs 为 skipped），仍然执行部署
     if: ${{ always() && !failure() && !cancelled() }}
@@ -39,7 +39,7 @@ jobs:
           port: ${{ secrets.ECS_PORT || 22 }}
           key: ${{ secrets.ECS_SSH_KEY }}
           script_stop: true
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             set -e
             echo "=== 开始部署 $(date '+%Y-%m-%d %H:%M:%S') ==="
