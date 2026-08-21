@@ -75,7 +75,10 @@ export class AlipayService {
     }
 
     this.logger.error(`Alipay order failed: ${JSON.stringify(result)}`);
-    throw new Error(result.sub_msg || "创建支付订单失败");
+    if (result.subCode === "ACQ.ACCESS_FORBIDDEN") {
+      throw new Error("当面付功能未开通，请联系管理员在支付宝商家中心开通");
+    }
+    throw new Error(result.subMsg || "创建支付订单失败");
   }
 
   parseNotify(postData: Record<string, string>): NotifyResult | null {
