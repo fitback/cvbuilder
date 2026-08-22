@@ -37,15 +37,15 @@ export class RechargesService {
       },
     });
 
-    const { codeUrl } = await this.alipay.createOrder(amount, outTradeNo);
+    const { paymentPage } = await this.alipay.createOrder(amount, outTradeNo);
 
-    // Save QR code content for display
+    // Save payment page HTML for display
     await this.prisma.rechargeRecord.updateMany({
       where: { outTradeNo },
-      data: { codeUrl },
+      data: { codeUrl: paymentPage },
     });
 
-    return { outTradeNo, codeUrl, amount, points };
+    return { outTradeNo, codeUrl: paymentPage, amount, points };
   }
 
   async handleNotify(postData: Record<string, string>) {
