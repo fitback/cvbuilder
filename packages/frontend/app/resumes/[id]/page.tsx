@@ -4,13 +4,16 @@ import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ResumeDetail, ParseResult } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
+import VersionHistoryModal from "../../../components/VersionHistoryModal";
 import {
-  FileText, AlertCircle, RefreshCw, Check, Sparkles, Plus, Trash2, ChevronLeft, Columns,
+  FileText, AlertCircle, RefreshCw, Check, Sparkles, Plus, Trash2, ChevronLeft, ChevronDown, ChevronRight, Columns, History, X,
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
 
 const API = API_BASE;
+
+const COLLAPSE_KEY = "resume-editor-collapsed";
 
 function renderResumePreview(form: ParseResult): string {
   if (!form.name) return "";
@@ -88,6 +91,19 @@ function emptyParseResult(): ParseResult {
   };
 }
 
+/** Sort array items newest-first by the start year/month in their `duration` field (stable). */
+function sortByStartDate(items: Array<{ duration?: string }>): any[] {
+  const keyOf = (d: string | undefined): number => {
+    if (!d) return -1;
+    const m = d.match(/(\d{4})[.\-/年]?\s*(\d{1,2})?/);
+    if (!m) return -1;
+    const year = parseInt(m[1], 10);
+    const month = m[2] ? parseInt(m[2], 10) : 0;
+    return year * 100 + month;
+  };
+  return [...items].sort((a, b) => keyOf(b.duration) - keyOf(a.duration));
+}
+
 export default function ResumeEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [resume, setResume] = useState<ResumeDetail | null>(null);
@@ -98,8 +114,30 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
   const [splitView, setSplitView] = useState(false);
   const lastSavedSnapshot = useRef("");
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const splitViewInitialized = useRef(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [versions, setVersions] = useState<{ id: string; label?: string; source: "auto" | "manual" | "before_restore"; createdAt: string }[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionSaving, setVersionSaving] = useState(false);
+  const [versionRestoring, setVersionRestoring] = useState(false);
+  // Section collapse state persisted in sessionStorage
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(sessionStorage.getItem(COLLAPSE_KEY) || "{}"); } catch { return {}; }
+  });
+  const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    if (splitViewInitialized.current) return;
+    splitViewInitialized.current = true;
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      setSplitView(true);
+    }
+  }, []);
 
   // Save on Ctrl/Cmd+S
   useEffect(() => {
@@ -145,9 +183,9 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
               name: pr.name || "",
               contact: { phone: pr.contact?.phone || "", email: pr.contact?.email || "", location: pr.contact?.location || "" },
               summary: pr.summary || "",
-              workExperience: pr.workExperience || [],
-              projectExperience: pr.projectExperience || [],
-              education: pr.education || [],
+              workExperience: sortByStartDate(pr.workExperience || []),
+              projectExperience: sortByStartDate(pr.projectExperience || []),
+              education: sortByStartDate(pr.education || []),
               skills: pr.skills || [],
             };
             setForm(parsedForm);
@@ -167,7 +205,7 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
     const snapshot = JSON.stringify(form);
     if (isAutoSave && snapshot === lastSavedSnapshot.current) return;
     setSaving(true);
-    window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "saving", time: "" } }));
+    setSaveStatus("saving");
     try {
       const res = await apiFetch(`${API}/resumes/${id}`, {
         method: "PUT",
@@ -177,26 +215,130 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
       const json = await res.json();
       if (!json.success) {
         toast("保存失败", "error");
-        window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "error", time: "" } }));
-        setTimeout(() => window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time: "" } })), 5000);
+        setSaveStatus("error");
         return;
       }
       lastSavedSnapshot.current = snapshot;
+      setLastSavedAt(new Date());
+      setSaveStatus("saved");
       if (!isAutoSave) toast("保存成功", "success");
-      const time = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-      window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time } }));
     } catch {
       toast("网络错误", "error");
-      window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "error", time: "" } }));
-      setTimeout(() => window.dispatchEvent(new CustomEvent("save-status", { detail: { state: "idle", time: "" } })), 5000);
+      setSaveStatus("error");
     } finally {
       setSaving(false);
     }
   }
 
+  function toggleCollapse(key: string) {
+    setCollapsed((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { sessionStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  function toggleDesc(key: string) {
+    setExpandedDesc((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  // Completeness calculation
+  const completenessChecks = [
+    { key: "name", label: "姓名", done: !!form.name?.trim() },
+    { key: "phone", label: "手机", done: !!form.contact?.phone?.trim() },
+    { key: "email", label: "邮箱", done: !!form.contact?.email?.trim() },
+    { key: "summary", label: "个人摘要", done: !!form.summary?.trim() },
+    { key: "work", label: "工作经历", done: form.workExperience.length > 0 },
+    { key: "project", label: "项目经历", done: form.projectExperience.length > 0 },
+    { key: "education", label: "教育背景", done: form.education.length > 0 },
+    { key: "skills", label: "专业技能", done: form.skills.length > 0 },
+  ];
+  const completedCount = completenessChecks.filter((c) => c.done).length;
+  const completeness = Math.round((completedCount / completenessChecks.length) * 100);
+  const missingLabels = completenessChecks.filter((c) => !c.done).map((c) => c.label);
+
   function updateContact(field: "phone" | "email" | "location", value: string) {
     setForm((prev) => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-[fadeIn_200ms_ease-out]">
+        <AlertCircle size={48} className="text-[#C75B5B] mb-4 opacity-50" />
+        <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2">加载失败</h3>
+        <p className="text-sm text-[#6B6B6B] mb-6">{error}</p>
+        <Button variant="secondary" icon={<RefreshCw size={16} />} onClick={() => window.location.reload()}>
+          重试
+        </Button>
+      </div>
+    );
+  }
+
+  // ----- Version history handlers -----
+
+  async function loadVersions() {
+    setVersionsLoading(true);
+    try {
+      const res = await apiFetch(`${API}/resumes/${id}/versions`);
+      const json = await res.json();
+      if (json.success) setVersions(json.data ?? []);
+    } catch { /* ignore */ }
+    finally { setVersionsLoading(false); }
+  }
+
+  useEffect(() => {
+    if (showVersions) loadVersions();
+  }, [showVersions]);
+
+  async function handleCreateVersion(label: string) {
+    setVersionSaving(true);
+    try {
+      const res = await apiFetch(`${API}/resumes/${id}/versions`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const json = await res.json();
+      if (json.success) { toast("已保存命名版本", "success"); await loadVersions(); }
+      else toast(json.error?.message ?? "保存失败", "error");
+    } catch { toast("网络错误", "error"); }
+    finally { setVersionSaving(false); }
+  }
+
+  async function handleRestoreVersion(versionId: string) {
+    setVersionRestoring(true);
+    try {
+      const res = await apiFetch(`${API}/resumes/${id}/versions/${versionId}/restore`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        // Reload the resume so editor reflects restored content
+        const detail = await apiFetch(`${API}/resumes/${id}`).then(r => r.json());
+        if (detail.success && detail.data?.parseResult) {
+          const pr = detail.data.parseResult;
+          const restoredForm = {
+            name: pr.name || "",
+            contact: { phone: pr.contact?.phone || "", email: pr.contact?.email || "", location: pr.contact?.location || "" },
+            summary: pr.summary || "",
+            workExperience: pr.workExperience || [],
+            projectExperience: pr.projectExperience || [],
+            education: pr.education || [],
+            skills: pr.skills || [],
+          };
+          setForm(restoredForm);
+          lastSavedSnapshot.current = JSON.stringify(restoredForm);
+        }
+        toast("已恢复到所选版本", "success");
+        await loadVersions();
+        setShowVersions(false);
+      } else toast(json.error?.message ?? "恢复失败", "error");
+    } catch { toast("网络错误", "error"); }
+    finally { setVersionRestoring(false); }
+  }
+
+  function handlePreviewVersion(versionId: string) {
+    // Open version detail in a new tab (read-only preview)
+    window.open(`/resumes/${id}?version=${versionId}`, "_blank");
+  }
+
 
   function addArrayItem(field: "workExperience" | "projectExperience" | "education") {
     const defaults: Record<string, any> = {
@@ -222,10 +364,6 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
 
   function removeArrayItem(field: "workExperience" | "projectExperience" | "education", index: number) {
     setForm((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
-  }
-
-  function setSkills(skillsStr: string) {
-    setForm((prev) => ({ ...prev, skills: skillsStr.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
   }
 
   if (error) {
@@ -278,6 +416,14 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
             onClick={() => setSplitView(!splitView)}
           >
             {splitView ? "单栏" : "分屏"}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<History size={14} />}
+            onClick={() => setShowVersions(true)}
+          >
+            版本
           </Button>
           <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={() => void handleSave()}>
             保存
@@ -359,13 +505,23 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
         )
       ) : (
         <div className={splitView ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}>
-          <div className="space-y-6">
-            <Section title="基本信息">
+          <div className="space-y-5">
+            {/* Status bar: save status + completeness */}
+            <div className="flex items-center justify-between px-1 gap-3 flex-wrap">
+              <SaveStatusBadge status={saveStatus} lastSavedAt={lastSavedAt} />
+              <CompletenessBar percent={completeness} missingLabels={missingLabels} />
+            </div>
+
+            <Section
+              title="基本信息"
+              collapsed={!!collapsed["basic"]}
+              onToggle={() => toggleCollapse("basic")}
+            >
             <div className="grid grid-cols-2 gap-3">
-              <Field label="姓名" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} />
-              <Field label="手机" value={form.contact.phone} onChange={(v) => updateContact("phone", v)} />
-              <Field label="邮箱" value={form.contact.email} onChange={(v) => updateContact("email", v)} />
-              <Field label="地点" value={form.contact.location} onChange={(v) => updateContact("location", v)} />
+              <Field label="姓名" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} placeholder="张三" />
+              <Field label="手机" value={form.contact.phone} onChange={(v) => updateContact("phone", v)} placeholder="138-0000-0000" />
+              <Field label="邮箱" value={form.contact.email} onChange={(v) => updateContact("email", v)} placeholder="zhangsan@example.com" />
+              <Field label="地点" value={form.contact.location} onChange={(v) => updateContact("location", v)} placeholder="北京 · 朝阳" />
             </div>
             <div className="mt-3">
               <label className="block text-xs font-medium text-[#6B6B6B] mb-1">个人摘要</label>
@@ -373,6 +529,7 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
                 value={form.summary}
                 onChange={(e) => setForm((p) => ({ ...p, summary: e.target.value }))}
                 rows={3}
+                placeholder="一句话介绍你的核心优势与职业方向…"
                 className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A] resize-none"
               />
             </div>
@@ -381,101 +538,122 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
           {/* Work Experience */}
           <Section
             title="工作经历"
+            count={form.workExperience.length}
+            collapsed={!!collapsed["work"]}
+            onToggle={() => toggleCollapse("work")}
             onAdd={() => addArrayItem("workExperience")}
             addLabel="+ 添加工作经历"
           >
-            {form.workExperience.map((item, i) => (
+            {form.workExperience.length === 0 ? (
+              <EmptyHint text="还没有工作经历，点击右上角添加" />
+            ) : form.workExperience.map((item, i) => {
+              const key = `work-${i}`;
+              const title = [item.company, item.position].filter(Boolean).join(" · ") || `工作经历 ${i + 1}`;
+              return (
               <ArrayCard
-                key={i}
-                label={`工作经历 ${i + 1}`}
+                key={key}
+                label={title}
                 onRemove={() => removeArrayItem("workExperience", i)}
               >
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="公司" value={item.company} onChange={(v) => updateArrayItem("workExperience", i, "company", v)} />
-                  <Field label="职位" value={item.position} onChange={(v) => updateArrayItem("workExperience", i, "position", v)} />
-                  <Field label="时间" value={item.duration} onChange={(v) => updateArrayItem("workExperience", i, "duration", v)} />
+                  <Field label="公司" value={item.company} onChange={(v) => updateArrayItem("workExperience", i, "company", v)} placeholder="字节跳动" />
+                  <Field label="职位" value={item.position} onChange={(v) => updateArrayItem("workExperience", i, "position", v)} placeholder="前端工程师" />
+                  <TimeField label="时间" value={item.duration} onChange={(v) => updateArrayItem("workExperience", i, "duration", v)} placeholder="2022.03 - 2024.06" />
                 </div>
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-[#6B6B6B] mb-1">描述</label>
-                  <textarea
-                    value={item.description}
-                    onChange={(e) => updateArrayItem("workExperience", i, "description", e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A] resize-none"
-                  />
-                </div>
+                <DescriptionField
+                  expanded={!!expandedDesc[key] || !!item.description}
+                  onToggle={() => toggleDesc(key)}
+                  value={item.description}
+                  onChange={(v) => updateArrayItem("workExperience", i, "description", v)}
+                />
               </ArrayCard>
-            ))}
+              );
+            })}
           </Section>
 
           {/* Project Experience */}
           <Section
             title="项目经历"
+            count={form.projectExperience.length}
+            collapsed={!!collapsed["project"]}
+            onToggle={() => toggleCollapse("project")}
             onAdd={() => addArrayItem("projectExperience")}
             addLabel="+ 添加项目经历"
           >
-            {form.projectExperience.map((item, i) => (
+            {form.projectExperience.length === 0 ? (
+              <EmptyHint text="还没有项目经历，点击右上角添加" />
+            ) : form.projectExperience.map((item, i) => {
+              const key = `project-${i}`;
+              const title = [item.name, item.role].filter(Boolean).join(" · ") || `项目经历 ${i + 1}`;
+              return (
               <ArrayCard
-                key={i}
-                label={`项目经历 ${i + 1}`}
+                key={key}
+                label={title}
                 onRemove={() => removeArrayItem("projectExperience", i)}
               >
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="项目名称" value={item.name} onChange={(v) => updateArrayItem("projectExperience", i, "name", v)} />
-                  <Field label="角色" value={item.role} onChange={(v) => updateArrayItem("projectExperience", i, "role", v)} />
-                  <Field label="时间" value={item.duration} onChange={(v) => updateArrayItem("projectExperience", i, "duration", v)} />
+                  <Field label="项目名称" value={item.name} onChange={(v) => updateArrayItem("projectExperience", i, "name", v)} placeholder="企业内部工具平台" />
+                  <Field label="角色" value={item.role} onChange={(v) => updateArrayItem("projectExperience", i, "role", v)} placeholder="技术负责人" />
+                  <TimeField label="时间" value={item.duration} onChange={(v) => updateArrayItem("projectExperience", i, "duration", v)} placeholder="2023.01 - 2023.06" />
                 </div>
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-[#6B6B6B] mb-1">描述</label>
-                  <textarea
-                    value={item.description}
-                    onChange={(e) => updateArrayItem("projectExperience", i, "description", e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A] resize-none"
-                  />
-                </div>
+                <DescriptionField
+                  expanded={!!expandedDesc[key] || !!item.description}
+                  onToggle={() => toggleDesc(key)}
+                  value={item.description}
+                  onChange={(v) => updateArrayItem("projectExperience", i, "description", v)}
+                />
               </ArrayCard>
-            ))}
+              );
+            })}
           </Section>
 
           {/* Education */}
           <Section
             title="教育背景"
+            count={form.education.length}
+            collapsed={!!collapsed["education"]}
+            onToggle={() => toggleCollapse("education")}
             onAdd={() => addArrayItem("education")}
             addLabel="+ 添加教育经历"
           >
-            {form.education.map((item, i) => (
+            {form.education.length === 0 ? (
+              <EmptyHint text="还没有教育经历，点击右上角添加" />
+            ) : form.education.map((item, i) => {
+              const title = [item.school, item.degree].filter(Boolean).join(" · ") || `教育经历 ${i + 1}`;
+              return (
               <ArrayCard
-                key={i}
-                label={`教育经历 ${i + 1}`}
+                key={`edu-${i}`}
+                label={title}
                 onRemove={() => removeArrayItem("education", i)}
               >
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="学校" value={item.school} onChange={(v) => updateArrayItem("education", i, "school", v)} />
-                  <Field label="专业" value={item.major} onChange={(v) => updateArrayItem("education", i, "major", v)} />
-                  <Field label="学历" value={item.degree} onChange={(v) => updateArrayItem("education", i, "degree", v)} />
-                  <Field label="时间" value={item.duration} onChange={(v) => updateArrayItem("education", i, "duration", v)} />
+                  <Field label="学校" value={item.school} onChange={(v) => updateArrayItem("education", i, "school", v)} placeholder="北京大学" />
+                  <Field label="专业" value={item.major} onChange={(v) => updateArrayItem("education", i, "major", v)} placeholder="计算机科学" />
+                  <Field label="学历" value={item.degree} onChange={(v) => updateArrayItem("education", i, "degree", v)} placeholder="本科" />
+                  <TimeField label="时间" value={item.duration} onChange={(v) => updateArrayItem("education", i, "duration", v)} placeholder="2018.09 - 2022.06" />
                 </div>
               </ArrayCard>
-            ))}
+              );
+            })}
           </Section>
 
           {/* Skills */}
-          <Section title="专业技能">
-            <Field
-              label="技能（逗号分隔）"
-              value={form.skills.join(", ")}
-              onChange={(v) => setSkills(v)}
-              placeholder="如：Python, React, TypeScript"
-            />
+          <Section
+            title="专业技能"
+            collapsed={!!collapsed["skills"]}
+            onToggle={() => toggleCollapse("skills")}
+          >
+            <SkillInput skills={form.skills} onChange={(skills) => setForm((p) => ({ ...p, skills }))} />
           </Section>
 
-          {/* Bottom actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-[#EBEBEB]">
-            <span className="text-xs text-[#9E9E9E]">
-              编辑完成后请保存，再进行简历分析
+          {/* Bottom actions - sticky */}
+          <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 px-4 py-3 bg-white/90 backdrop-blur border border-[#E5E2DC] rounded-xl shadow-lg">
+            <span className="text-xs text-[#9E9E9E] hidden sm:block">
+              {saveStatus === "saved" && lastSavedAt
+                ? `已自动保存 · ${lastSavedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`
+                : saveStatus === "saving" ? "保存中…" : saveStatus === "error" ? "保存失败，请重试" : "内容自动保存"}
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 ml-auto">
               <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={() => void handleSave()}>
                 保存
               </Button>
@@ -502,6 +680,21 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
       )}
+
+      {/* Version history modal */}
+      {showVersions && (
+        <VersionHistoryModal
+          resourceLabel={form.name || resume.fileNameOriginal}
+          versions={versions}
+          loading={versionsLoading}
+          saving={versionSaving}
+          restoring={versionRestoring}
+          onCreate={handleCreateVersion}
+          onPreview={handlePreviewVersion}
+          onRestore={handleRestoreVersion}
+          onClose={() => setShowVersions(false)}
+        />
+      )}
     </div>
   );
 }
@@ -510,30 +703,49 @@ export default function ResumeEditPage({ params }: { params: Promise<{ id: strin
 
 function Section({
   title,
+  count,
+  collapsed,
+  onToggle,
   children,
   onAdd,
   addLabel,
 }: {
   title: string;
+  count?: number;
+  collapsed: boolean;
+  onToggle: () => void;
   children: React.ReactNode;
   onAdd?: () => void;
   addLabel?: string;
 }) {
   return (
-    <div className="bg-white border border-[#EBEBEB] rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-[#2D2D2D]">{title}</h3>
+    <div className="bg-white border border-[#EBEBEB] rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5">
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-2 group flex-1 text-left"
+          aria-expanded={!collapsed}
+        >
+          <ChevronDown
+            size={14}
+            className={`text-[#9E9E9E] transition-transform duration-200 ${collapsed ? "-rotate-90" : ""} group-hover:text-[#6B6B6B]`}
+          />
+          <h3 className="text-sm font-semibold text-[#2D2D2D]">{title}</h3>
+          {count !== undefined && count > 0 && (
+            <span className="text-xs text-[#9E9E9E]">({count})</span>
+          )}
+        </button>
         {onAdd && (
           <button
             onClick={onAdd}
-            className="flex items-center gap-1 text-xs text-[#B75C3A] hover:text-[#9A4E31] transition-colors"
+            className="flex items-center gap-1 text-xs text-[#B75C3A] hover:text-[#9A4E31] transition-colors shrink-0"
           >
             <Plus size={14} />
             {addLabel}
           </button>
         )}
       </div>
-      <div className="space-y-3">{children}</div>
+      {!collapsed && <div className="px-5 pb-5 space-y-3">{children}</div>}
     </div>
   );
 }
@@ -563,6 +775,63 @@ function Field({
   );
 }
 
+/* ---- Time field with on-blur normalization (YYYY.MM) ---- */
+
+function normalizeTimePart(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "";
+  // Handle "至今"/"now"/"present"
+  if (/至今|现在|now|present/i.test(s)) return "至今";
+  // Extract year and optional month: supports 2022.3 / 2022-3 / 2022/3 / 2022年3月 / 2022.03
+  const m = s.match(/^(\d{4})[.\-/年]?\s*(\d{1,2})?/);
+  if (!m) return s;
+  const year = m[1];
+  const month = m[2];
+  if (!month) return year;
+  const mm = month.padStart(2, "0");
+  return `${year}.${mm}`;
+}
+
+function normalizeTime(value: string): string {
+  // Split range by " - " / "–" / "至" / "~"
+  const parts = value.split(/\s*[-–~至]\s*/);
+  if (parts.length === 2) {
+    const a = normalizeTimePart(parts[0]);
+    const b = normalizeTimePart(parts[1]);
+    if (a && b) return `${a} - ${b}`;
+  }
+  return normalizeTimePart(value);
+}
+
+function TimeField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string | undefined;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[#6B6B6B] mb-1">{label}</label>
+      <input
+        type="text"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => {
+          const normalized = normalizeTime(e.target.value);
+          if (normalized !== e.target.value) onChange(normalized);
+        }}
+        placeholder={placeholder ?? "2022.03 - 2024.06"}
+        className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm text-[#2D2D2D] focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A]"
+      />
+    </div>
+  );
+}
+
 function ArrayCard({
   label,
   onRemove,
@@ -573,18 +842,172 @@ function ArrayCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="p-4 bg-[#FAFAF9] rounded-lg border border-[#EBEBEB]">
+    <div className="p-4 bg-[#FAFAF9] rounded-lg border border-[#EBEBEB] group">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-[#6B6B6B]">{label}</span>
+        <span className="text-sm font-medium text-[#2D2D2D] truncate pr-2">{label}</span>
         <button
           onClick={onRemove}
-          className="text-[#C75B5B] hover:text-[#A94848] transition-colors"
+          className="text-[#C75B5B] hover:text-[#A94848] transition-colors opacity-60 hover:opacity-100 shrink-0"
           aria-label={`删除${label}`}
         >
           <Trash2 size={14} />
         </button>
       </div>
       {children}
+    </div>
+  );
+}
+
+/* ---- Save status badge ---- */
+
+function SaveStatusBadge({
+  status,
+  lastSavedAt,
+}: {
+  status: "idle" | "saving" | "saved" | "error";
+  lastSavedAt: Date | null;
+}) {
+  const config = {
+    idle: { text: "内容自动保存", color: "text-[#9E9E9E]", dot: "bg-[#D4D4D4]" },
+    saving: { text: "保存中…", color: "text-[#C7953A]", dot: "bg-[#C7953A] animate-pulse" },
+    saved: {
+      text: lastSavedAt ? `已保存 · ${lastSavedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}` : "已保存",
+      color: "text-[#5B8C5A]",
+      dot: "bg-[#5B8C5A]",
+    },
+    error: { text: "保存失败", color: "text-[#C75B5B]", dot: "bg-[#C75B5B]" },
+  }[status];
+
+  return (
+    <div className={`flex items-center gap-1.5 text-xs ${config.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {config.text}
+    </div>
+  );
+}
+
+/* ---- Completeness progress bar ---- */
+
+function CompletenessBar({ percent, missingLabels }: { percent: number; missingLabels: string[] }) {
+  const color = percent >= 80 ? "bg-[#5B8C5A]" : percent >= 50 ? "bg-[#C7953A]" : "bg-[#C75B5B]";
+  const text = percent >= 80 ? "text-[#5B8C5A]" : percent >= 50 ? "text-[#C7953A]" : "text-[#C75B5B]";
+  return (
+    <div className="flex items-center gap-2 group relative">
+      <div className="w-28 h-1.5 bg-[#F0EFED] rounded-full overflow-hidden">
+        <div className={`h-full ${color} transition-all duration-300`} style={{ width: `${percent}%` }} />
+      </div>
+      <span className={`text-xs font-medium ${text}`}>{percent}%</span>
+      {missingLabels.length > 0 && (
+        <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-full mt-1 z-30 bg-[#2D2D2D] text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+          还缺：{missingLabels.join("、")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Collapsible description field ---- */
+
+function DescriptionField({
+  expanded,
+  onToggle,
+  value,
+  onChange,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="mt-2">
+      {expanded ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          placeholder="描述你的职责、成果与亮点…"
+          className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A] resize-none"
+        />
+      ) : (
+        <button
+          onClick={onToggle}
+          className="text-xs text-[#9E9E9E] hover:text-[#6B6B6B] flex items-center gap-1 transition-colors"
+        >
+          <Plus size={12} />
+          添加描述
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---- Empty hint for list sections ---- */
+
+function EmptyHint({ text }: { text: string }) {
+  return (
+    <div className="py-6 text-center text-xs text-[#9E9E9E]">
+      {text}
+    </div>
+  );
+}
+
+/* ---- Skill chip input ---- */
+
+function SkillInput({ skills, onChange }: { skills: string[]; onChange: (skills: string[]) => void }) {
+  const [input, setInput] = useState("");
+
+  function commit(raw: string) {
+    const parts = raw
+      .split(/[,，\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+    const merged = [...new Set([...skills, ...parts])];
+    onChange(merged);
+    setInput("");
+  }
+
+  function removeSkill(index: number) {
+    onChange(skills.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1.5 p-2 border border-[#EBEBEB] rounded-lg bg-white focus-within:border-[#B75C3A] focus-within:ring-2 focus-within:ring-[#B75C3A]/15">
+        {skills.map((skill, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#F5F4F2] rounded text-xs text-[#2D2D2D]"
+          >
+            {skill}
+            <button
+              onClick={() => removeSkill(i)}
+              className="text-[#9E9E9E] hover:text-[#C75B5B] transition-colors"
+              aria-label={`删除技能 ${skill}`}
+            >
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "," || e.key === "，") {
+              e.preventDefault();
+              commit(input);
+            } else if (e.key === "Backspace" && input === "" && skills.length > 0) {
+              removeSkill(skills.length - 1);
+            }
+          }}
+          onBlur={() => commit(input)}
+          placeholder={skills.length === 0 ? "输入技能后回车确认，如：React" : "添加更多…"}
+          className="flex-1 min-w-[120px] px-1 py-0.5 text-sm border-0 outline-none bg-transparent text-[#2D2D2D]"
+        />
+      </div>
+      <p className="text-xs text-[#9E9E9E] mt-1">支持回车、逗号分隔；Backspace 删除最后一个</p>
     </div>
   );
 }

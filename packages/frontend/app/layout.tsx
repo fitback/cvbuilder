@@ -8,7 +8,7 @@ import AuthModal from "../components/AuthModal";
 import PointsBalance from "../components/PointsBalance";
 import PointsModal from "../components/PointsModal";
 import { ToastProvider } from "../components/Toast";
-import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut, ShieldAlert, Moon, Sun } from "../components/icons";
+import { LayoutDashboard, Upload, Briefcase, Coins, User, LogOut, ShieldAlert } from "../components/icons";
 import { isLoggedIn, clearToken, apiFetch, API_BASE } from "../lib/auth";
 import { useModalA11y } from "../lib/useModalA11y";
 import "./globals.css";
@@ -27,7 +27,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [showPoints, setShowPoints] = useState(false);
   const [parsingCount, setParsingCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState<{ state: "idle" | "saving" | "error"; time: string } | null>(null);
-  const [dark, setDark] = useState(false);
   const [showMobileAccount, setShowMobileAccount] = useState(false);
   const logoutDialogRef = useModalA11y(showLogoutConfirm, () => setShowLogoutConfirm(false));
   const accountDialogRef = useModalA11y(showMobileAccount, () => setShowMobileAccount(false));
@@ -97,24 +96,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener("auth-expired", handler);
   }, []);
 
-  // Dark mode: init from localStorage -> system preference
-  useEffect(() => {
-    const stored = localStorage.getItem("dark-mode");
-    if (stored === "true") { setDark(true); document.documentElement.classList.add("dark"); }
-    else if (stored === "false") { /* explicit light, class already absent */ }
-    else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setDark(true);
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
-  function toggleDark() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("dark-mode", String(next));
-  }
-
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
@@ -157,13 +138,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <button onClick={() => setShowMobileAccount(false)} className="text-sm text-[#9E9E9E] hover:text-[#2D2D2D]" aria-label="关闭我的面板">关闭</button>
                 </div>
                 {userPhone && <p className="text-sm text-[#6B6B6B] mb-4">{userPhone}</p>}
-                <button
-                  onClick={toggleDark}
-                  className="flex items-center justify-between w-full min-h-[44px] px-3 py-2.5 text-sm text-[#2D2D2D] border border-[#EBEBEB] rounded-lg"
-                >
-                  <span className="flex items-center gap-2">{dark ? <Sun size={16} /> : <Moon size={16} />}{dark ? "浅色模式" : "深色模式"}</span>
-                  <span className="text-xs text-[#9E9E9E]">切换</span>
-                </button>
                 {userPhone ? (
                   <button
                     onClick={() => { setShowMobileAccount(false); setShowLogoutConfirm(true); }}
@@ -228,13 +202,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               )}
               <div className="pt-4 border-t border-[#EBEBEB] mt-4">
-                <button
-                  onClick={toggleDark}
-                  className="flex items-center gap-2 w-full px-1 py-2 text-xs text-[#9E9E9E] hover:text-[#2D2D2D] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B75C3A]/30 focus-visible:rounded"
-                >
-                  {dark ? <Sun size={14} /> : <Moon size={14} />}
-                  {dark ? "浅色模式" : "深色模式"}
-                </button>
                 {userPhone ? (
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs text-[#6B6B6B] truncate max-w-[120px]">{userPhone}</span>

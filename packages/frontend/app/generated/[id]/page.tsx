@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import MDEditor from "@uiw/react-md-editor";
 import { GeneratedResumeDetail } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
+import VersionHistoryModal from "../../../components/VersionHistoryModal";
+import ExportPreviewModal, { buildExportWarnings, ExportFormat } from "../../../components/ExportPreviewModal";
 import { marked } from "marked";
 import {
   FileText, AlertCircle, RefreshCw, Check, Copy, Download,
-  ChevronDown, Sparkles, Columns, MoreHorizontal,
+  ChevronDown, Sparkles, Columns, MoreHorizontal, History,
 } from "../../../components/icons";
 import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
@@ -44,12 +46,19 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>("idle");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [versions, setVersions] = useState<{ id: string; label?: string; source: "auto" | "manual" | "before_restore"; createdAt: string }[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionSaving, setVersionSaving] = useState(false);
+  const [versionRestoring, setVersionRestoring] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const originalContent = useRef("");
   const moreRef = useRef<HTMLDivElement>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const leaveDialogRef = useModalA11y(showLeaveConfirm, () => setShowLeaveConfirm(false));
-  const previewDialogRef = useModalA11y(showPreview, () => setShowPreview(false));
 
   const isDirty = content !== originalContent.current;
 
@@ -107,6 +116,8 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
 
   const doAutoSave = useCallback(async () => {
     if (!content || !record) return;
+    // Skip if content unchanged since last save
+    if (content === originalContent.current) return;
     setAutoSaveStatus("saving");
     dispatchSave("saving");
     try {
@@ -132,31 +143,102 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
     }
   }, [id, content, name, record]);
 
+  // Debounced 2s auto-save: restart timer on each input change; clean up on unmount.
   useEffect(() => {
-    if (!content || !record) return;
-    const timer = setInterval(doAutoSave, 30000);
-    return () => clearInterval(timer);
-  }, [doAutoSave]);
+    if (!content || !record || !isDirty) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { doAutoSave(); }, 2000);
+    return () => {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
+    };
+  }, [content, name, record, isDirty, doAutoSave]);
+
+  // Load versions when opening the panel
+  async function loadVersions() {
+    setVersionsLoading(true);
+    try {
+      const res = await apiFetch(`${API}/generated-resumes/${id}/versions`);
+      const json = await res.json();
+      if (json.success) setVersions(json.data ?? []);
+    } catch { /* ignore */ }
+    finally { setVersionsLoading(false); }
+  }
+
+  useEffect(() => {
+    if (showVersions) loadVersions();
+  }, [showVersions]);
+
+  async function handleCreateVersion(label: string) {
+    setVersionSaving(true);
+    try {
+      const res = await apiFetch(`${API}/generated-resumes/${id}/versions`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const json = await res.json();
+      if (json.success) { toast("已保存命名版本", "success"); await loadVersions(); }
+      else toast(json.error?.message ?? "保存失败", "error");
+    } catch { toast("网络错误", "error"); }
+    finally { setVersionSaving(false); }
+  }
+
+  async function handleRestoreVersion(versionId: string) {
+    setVersionRestoring(true);
+    try {
+      const res = await apiFetch(`${API}/generated-resumes/${id}/versions/${versionId}/restore`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        // Reload the record so editor reflects restored content
+        const detail = await apiFetch(`${API}/generated-resumes/${id}`).then(r => r.json());
+        if (detail.success) {
+          setName(detail.data.name);
+          setContent(detail.data.content);
+          originalContent.current = detail.data.content;
+          setLastSaved(new Date(detail.data.updatedAt));
+        }
+        toast("已恢复到所选版本", "success");
+        await loadVersions();
+        setShowVersions(false);
+      } else toast(json.error?.message ?? "恢复失败", "error");
+    } catch { toast("网络错误", "error"); }
+    finally { setVersionRestoring(false); }
+  }
+
+  function handlePreviewVersion(versionId: string) {
+    // Open version detail in a new tab (read-only preview)
+    window.open(`/generated/${id}?version=${versionId}`, "_blank");
+  }
+
+  async function handleExport(format: ExportFormat) {
+    if (!content.trim()) return;
+    setExporting(true); setExportError("");
+    try {
+      const res = await apiFetch(`${API}/export/${format}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: content }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error?.message ?? "导出失败");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name.trim() || "resume"}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`${format.toUpperCase()} 已导出`, "success");
+      setShowPreview(false);
+    } catch (e) {
+      setExportError((e as Error).message);
+    } finally { setExporting(false); }
+  }
 
   async function copyMarkdown() { await navigator.clipboard.writeText(content); toast("已复制到剪贴板", "success"); }
-
-  function doExportPdf() {
-    apiFetch(`${API}/export/pdf`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markdown: content }) })
-      .then(r => r.blob()).then(blob => {
-        const url = URL.createObjectURL(blob); const a = document.createElement("a");
-        a.href = url; a.download = "resume.pdf"; a.click(); URL.revokeObjectURL(url);
-        toast("PDF 已导出", "success");
-      }).catch(() => toast("PDF 导出失败", "error"));
-  }
-
-  function doExportDocx() {
-    apiFetch(`${API}/export/docx`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markdown: content }) })
-      .then(r => r.blob()).then(blob => {
-        const url = URL.createObjectURL(blob); const a = document.createElement("a");
-        a.href = url; a.download = "resume.docx"; a.click(); URL.revokeObjectURL(url);
-        toast("DOCX 已导出", "success");
-      }).catch(() => toast("DOCX 导出失败", "error"));
-  }
 
   async function handleSave() {
     if (!name.trim()) { setSaveError("请输入名称"); return; }
@@ -234,6 +316,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           <Button variant="secondary" size="sm" icon={<Columns size={14} />} onClick={() => setSplitView(!splitView)}>
             {splitView ? "单栏" : "分屏"}
           </Button>
+          <Button variant="secondary" size="sm" icon={<History size={14} />} onClick={() => setShowVersions(true)}>版本</Button>
           <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={() => setShowPreview(true)}>预览导出</Button>
           <Button variant="secondary" size="sm" onClick={() => { if (isDirty) setShowLeaveConfirm(true); else router.push("/dashboard"); }}>返回</Button>
           <Button variant="primary" size="sm" icon={<Check size={14} />} loading={saving} onClick={handleSave}>保存并返回</Button>
@@ -247,6 +330,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
             {showMore && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-[#EBEBEB] rounded-lg shadow-lg py-1 z-50 min-w-[140px]">
                 <button onClick={() => { setShowPreview(true); setShowMore(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F4F2] flex items-center gap-2"><FileText size={14} />预览导出</button>
+                <button onClick={() => { setShowVersions(true); setShowMore(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F4F2] flex items-center gap-2"><History size={14} />版本记录</button>
                 <button onClick={() => { setSplitView(!splitView); setShowMore(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F4F2] flex items-center gap-2"><Columns size={14} />分屏</button>
                 <button onClick={() => { copyMarkdown(); setShowMore(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F4F2] flex items-center gap-2"><Copy size={14} />复制</button>
                 {analysisRecordId && (
@@ -302,24 +386,38 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {/* Preview/Export Modal */}
+      {/* Version history modal */}
+      {showVersions && (
+        <VersionHistoryModal
+          resourceLabel={record.name}
+          versions={versions}
+          loading={versionsLoading}
+          saving={versionSaving}
+          restoring={versionRestoring}
+          onCreate={handleCreateVersion}
+          onPreview={handlePreviewVersion}
+          onRestore={handleRestoreVersion}
+          onClose={() => setShowVersions(false)}
+        />
+      )}
+
+      {/* Export preview modal */}
       {showPreview && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowPreview(false)}>
-          <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title" className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EBEBEB]">
-              <h3 id="preview-dialog-title" className="text-lg font-semibold text-[#1A1A1A]">打印预览</h3>
-              <div className="flex items-center gap-2">
-                <Button variant="primary" size="sm" icon={<Download size={14} />} onClick={() => { doExportPdf(); }}>导出 PDF</Button>
-                <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={() => { doExportDocx(); }}>导出 DOCX</Button>
-                <button onClick={() => setShowPreview(false)} className="text-[#9E9E9E] hover:text-[#2D2D2D] text-lg leading-none" aria-label="关闭打印预览">&times;</button>
-              </div>
-            </div>
-            <div className="p-8 overflow-auto max-h-[calc(90vh-64px)] bg-white">
-              <div className="mx-auto" style={{ maxWidth: "21cm", fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans CN",sans-serif', fontSize: "10.5pt", lineHeight: "1.5", color: "#2D2D2D" }}
-                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(content) }} />
-            </div>
-          </div>
-        </div>
+        (() => {
+          const { isEmpty, warnings } = buildExportWarnings(content);
+          return (
+            <ExportPreviewModal
+              html={renderPreviewHtml(content)}
+              fileName={name.trim() || "resume"}
+              isEmpty={isEmpty}
+              warnings={warnings}
+              exporting={exporting}
+              error={exportError}
+              onExport={handleExport}
+              onClose={() => setShowPreview(false)}
+            />
+          );
+        })()
       )}
     </div>
   );
