@@ -68,11 +68,13 @@ The shared package must be built (`npm run build -w packages/shared`) before the
 - **Async resume parsing**: upload creates DB record + BullMQ job → `parse.worker.ts` extracts text (mammoth/pdfjs-dist) → DeepSeek extracts structured JSON → updates `parseStatus`. Dashboard polls for status.
 - **Two-stage AI pipeline**: "分析大师" (`prompts/analyze-master.md`) → analysis result → "生成大师" (`prompts/generate-master.md`) → Markdown resume.
 - **Analysis idempotency**: `@@unique([resumeId, jobDescriptionId])` on `AnalysisRecord`. Re-analyzing same pair returns cached result.
-- **Free tier gating**: `freeAnalysisCount` (default 3) on `Resume`. Atomically decremented with `gt: 0` guard. Refunded on AI failure.
+- **Analysis billing**: Non-admin users are charged 30 points per analysis via `PointsService.deduct` (atomic `updateMany` with `points: { gte: amount }` guard → throws `QUOTA_EXCEEDED` on shortfall). Refunded via `PointsService.refund` on AI failure. The `Resume.freeAnalysisCount` field exists (default 3) but is currently unused — gating is points-based.
 - **Circuit breaker**: `analyze/circuit-breaker.ts` — 5 failures / 60s reset for DeepSeek calls.
 - **GeneratedResume flow**: Save dialog on analyze page → `POST /generated-resumes` → redirect to edit page → `PUT /generated-resumes/:id` re-saves with dedup check (`@@unique([userId, name])`). Dashboard shows "生成的简历" section.
 - **PDF export**: Markdown → HTML template (A4, Source Han Sans CN, 2.5cm margins) → Puppeteer renders → PDF buffer.
 - **Points system**: Deduct on analyze/generate. Users can recharge. Transactions logged in `PointTransaction`.
+- **Version history** (v0.8.0): `ResumeVersion` and `GeneratedResumeVersion` models store snapshots of editable content on every save (`source: "auto"`) and restore (`source: "before_restore"` then `"auto"`). Each record keeps the latest 20 snapshots (older ones trimmed). Cross-user access returns 404. Endpoints: `GET /resumes/:id/versions`, `GET /resumes/:id/versions/:versionId`, `POST /resumes/:id/versions`, `POST /resumes/:id/versions/:versionId/restore` (same pattern for generated-resumes).
+- **Recharge expiry**: `RechargesService.expireStalePending()` runs hourly (onModuleInit + setInterval), marking `pending` records older than 24h as `expired`. Frontend polling handles `expired` status by returning to the select step.
 
 ## Error Codes
 

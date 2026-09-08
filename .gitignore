@@ -3,6 +3,9 @@ dist/
 .next/
 .next-dev/
 .env
+.env.bak
+.env.local
+.env.prod
 .superpowers/
 **/data/
 *.db

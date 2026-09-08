@@ -848,3 +848,40 @@ API_BASE_URL=http://localhost:3000
   - Atomic UPDATE for free count, DB unique constraint for idempotency
   - Token bucket rate limiting, standard API response envelope
   - Magic bytes file type detection
+
+---
+
+## 附录：v0.8.0 变更（2026-09-08）
+
+### 简历版本系统
+
+- 新增 `ResumeVersion` / `GeneratedResumeVersion` 模型，每次保存自动快照（`source: "auto"`），恢复时先写 `before_restore` 再写目标内容快照。
+- 每个记录保留最新 20 条快照，超出自动删除最旧。
+- 跨用户访问版本接口返回 404（所有权校验）。
+- 接口：`GET /resumes/:id/versions`、`GET /resumes/:id/versions/:versionId`、`POST /resumes/:id/versions`（手动命名快照）、`POST /resumes/:id/versions/:versionId/restore`。生成简历同构。
+
+### 编辑器易用性重构
+
+- Section 可折叠（sessionStorage 持久化），ArrayCard 标题显示实际内容（公司·职位）。
+- 技能输入改标签式 chip input（回车/逗号分隔，单独删除）。
+- 完整度进度条（8 项检查，hover 显示缺失字段）。
+- 时间字段失焦自动规范化为 `YYYY.MM`（兼容 `-` `/` `年` 等分隔符）。
+- 底部操作栏 sticky 固定，自动保存状态可视化（灰/黄/绿/红点）。
+- 描述字段默认折叠为「+ 添加描述」按钮。
+
+### 测试覆盖
+
+- 新增 35 个单元测试（`node:test` + ts-node）：支付回调幂等、积分扣减/退款、缓存命中/穿透/失效、Throttler 用户/IP 分流、版本快照/恢复/20 条淘汰/跨用户隔离。
+- CI 增加 `npm test -w packages/backend` 步骤。
+
+### 安全 & 运维
+
+- `AuthModule` 启动校验 JWT_SECRET：生产环境使用弱默认值直接抛错，开发环境 warn。
+- CSP 移除已下线的 Cloudflare Turnstile 引用。
+- `RechargesService` 每小时扫描 pending 超 24h 的充值标记为 `expired`（setInterval + onModuleInit/onModuleDestroy）。
+- `RechargeRecord` 加 `@@index([status, createdAt])` 复合索引优化过期清理查询。
+- 前端充值轮询适配 `expired` 状态（返回选择页 + 提示）。
+
+### 性能
+
+- `next.config.js` 启用 `experimental.optimizePackageImports`（`@uiw/react-md-editor` / `react-markdown` / `lucide-react`）。

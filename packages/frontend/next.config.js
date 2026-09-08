@@ -2,12 +2,11 @@ const BACKEND_URL = "http://localhost:3001";
 
 const csp = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com`,
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
   `img-src 'self' data: blob:`,
   `font-src 'self' https://fonts.gstatic.com`,
-  `connect-src 'self' http://localhost:3001 https://challenges.cloudflare.com`,
-  `frame-src https://challenges.cloudflare.com`,
+  `connect-src 'self' http://localhost:3001`,
 ].join("; ");
 
 /** @type {import('next').NextConfig} */
@@ -15,6 +14,9 @@ module.exports = {
   output: "standalone",
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   transpilePackages: ["@cvbuilder/shared"],
+  experimental: {
+    optimizePackageImports: ["@uiw/react-md-editor", "react-markdown", "lucide-react"],
+  },
   async rewrites() {
     return [
       {

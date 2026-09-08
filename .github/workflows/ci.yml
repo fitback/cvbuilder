@@ -37,6 +37,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
+      - name: 运行后端单元测试
+        run: npm test -w packages/backend
+
       - name: 构建 backend（含类型检查）
         run: npm run build -w packages/backend
 
