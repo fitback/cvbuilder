@@ -80,11 +80,17 @@ export default function RechargePage() {
       try {
         const res = await apiFetch(`${API}/recharges/status/${tradeNo}`);
         const json = await res.json();
-        if (json.success && json.data?.status === "approved") {
+        if (!json.success) return;
+        const status = json.data?.status;
+        if (status === "approved") {
           clearInterval(pollRef.current!);
           setStep("done");
           window.dispatchEvent(new Event("points-updated"));
           toast(`充值成功！到账 ${json.data.points} 积分`, "success");
+        } else if (status === "expired") {
+          clearInterval(pollRef.current!);
+          setStep("select");
+          toast("订单已过期，请重新发起充值", "error");
         }
       } catch {}
     }, 3000);

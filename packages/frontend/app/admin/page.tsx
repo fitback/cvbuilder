@@ -68,6 +68,7 @@ export default function AdminPage() {
     const map: Record<string, { label: string; cls: string }> = {
       approved: { label: "已支付", cls: "bg-[#5B8C5A]/10 text-[#5B8C5A]" },
       pending: { label: "待支付", cls: "bg-[#C7953A]/10 text-[#C7953A]" },
+      expired: { label: "已过期", cls: "bg-[#9E9E9E]/10 text-[#9E9E9E]" },
       rejected: { label: "已关闭", cls: "bg-[#C75B5B]/10 text-[#C75B5B]" },
     };
     const m = map[status] ?? { label: status, cls: "" };

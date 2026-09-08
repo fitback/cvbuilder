@@ -4,6 +4,8 @@
   "scripts": {
     "start:dev": "nest start --watch",
     "build": "nest build",
+    "test:versions": "node --test -r ts-node/register test/version-snapshots.spec.ts",
+    "test": "node --test -r ts-node/register test/*.spec.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init",
     "db:push": "prisma db push"

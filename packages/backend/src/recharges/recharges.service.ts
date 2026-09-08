@@ -1,19 +1,51 @@
-import { Injectable, HttpException, Logger } from "@nestjs/common";
+import { Injectable, HttpException, Logger, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { PointsService } from "../points/points.service";
 import { AlipayService } from "../payment/alipay.service";
 import { ErrorCode } from "@cvbuilder/shared";
 import { v4 as uuid } from "uuid";
 
+const PENDING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // run hourly
+
 @Injectable()
-export class RechargesService {
+export class RechargesService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RechargesService.name);
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private prisma: PrismaService,
     private points: PointsService,
     private alipay: AlipayService,
   ) {}
+
+  onModuleInit() {
+    // Run once shortly after startup, then hourly
+    setTimeout(() => this.expireStalePending(), 5000);
+    this.cleanupTimer = setInterval(() => this.expireStalePending(), CLEANUP_INTERVAL_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+  }
+
+  /** Mark pending recharges older than 24h as expired so the table doesn't grow unbounded. */
+  async expireStalePending(): Promise<number> {
+    try {
+      const cutoff = new Date(Date.now() - PENDING_TTL_MS);
+      const result = await this.prisma.rechargeRecord.updateMany({
+        where: { status: "pending", createdAt: { lt: cutoff } },
+        data: { status: "expired" },
+      });
+      if (result.count > 0) {
+        this.logger.log(`Expired ${result.count} stale pending recharge(s)`);
+      }
+      return result.count;
+    } catch (err: any) {
+      this.logger.error(`Recharge cleanup failed: ${err.message}`);
+      return 0;
+    }
+  }
 
   async createOrder(userId: string, amount: number) {
     if (!this.alipay.isValidPlan(amount)) {

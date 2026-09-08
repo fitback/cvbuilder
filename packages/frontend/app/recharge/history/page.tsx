@@ -9,8 +9,9 @@ import { apiFetch, API_BASE } from "../../../lib/auth";
 const API = API_BASE;
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Check; className: string }> = {
-  pending: { label: "待审核", icon: Clock, className: "bg-[#C7953A]/10 text-[#C7953A]" },
-  approved: { label: "已通过", icon: Check, className: "bg-[#5B8C5A]/10 text-[#5B8C5A]" },
+  pending: { label: "待支付", icon: Clock, className: "bg-[#C7953A]/10 text-[#C7953A]" },
+  approved: { label: "已支付", icon: Check, className: "bg-[#5B8C5A]/10 text-[#5B8C5A]" },
+  expired: { label: "已过期", icon: X, className: "bg-[#9E9E9E]/10 text-[#9E9E9E]" },
   rejected: { label: "已驳回", icon: X, className: "bg-[#C75B5B]/10 text-[#C75B5B]" },
 };
 
