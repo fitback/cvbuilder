@@ -41,7 +41,7 @@
 | v0.6.1 | 2026-08-13 | 生产修复：HTTPS 恢复、备案号上线、部署流水线加固、会话过期处理 |
 | v0.7.0 | 2026-08-20 | 本地 UI/UX 后续优化、管理员注册用户记录、开发构建缓存隔离 |
 | v0.7.1 | 2026-08-21 | 移除手动付款码上传、部署超时加固；充值保持电脑网站支付（page.pay，当面付为实体店场景不适用） |
-| v0.8.0 | 2026-09-08 | 简历版本系统（20 条快照/恢复/跨用户隔离）+ 编辑器易用性重构（折叠/标签技能/完整度/时间规范化/sticky 保存栏）+ 经历排序 bug 修复（解析层+展示层双重排序，最新在前）+ 35 个单元测试（支付幂等/积分扣减/缓存/限流/版本快照）+ JWT 弱密钥启动校验 + pending 充值 24h 自动过期 + 复合索引 + optimizePackageImports |
+| v0.8.0 | 2026-09-08 | 简历版本系统（20 条快照/恢复/跨用户隔离）+ 编辑器易用性重构（折叠/标签技能/完整度/时间规范化/sticky 保存栏）+ 经历排序 bug 修复（解析层+展示层双重排序，最新在前）+ 35 个单元测试（支付幂等/积分扣减/缓存/限流/版本快照）+ JWT 弱密钥启动校验 + pending 充值 24h 自动过期 + 复合索引 + optimizePackageImports ✅ 已上线 |
 
 ### v0.6.0 详细变更
 
@@ -318,6 +318,13 @@ Worker (BullMQ) → 简历解析队列
   - GitHub Actions SSH 密钥已配置（`~/.ssh/cvbuilder-deploy` → GitHub Secrets `ECS_SSH_KEY`）
 - **部署方式**：手动触发（去 GitHub Actions → Deploy → Run workflow），不做自动部署
 - **环境变量**：`.env.prod` 已在服务器上配置，已加入 `.gitignore` 不进仓库
+
+### v0.8.0 部署记录（2026-09-08）
+
+- 部署链路：本地 main（`fde376a`）→ push 生产仓库 `fitback/cvbuilder2.0`（`c125452..fde376a`，5 提交）→ Deploy run #34225061340 → 部署 job 成功 + 健康检查通过（CI 的 Docker 构建验证步骤被取消，不影响部署）
+- **DB migration 基线化**：v0.8.0 首次引入 `prisma/migrations`（2 个 migration，第一个是全量基线，含全部 9 张表）。此前 prod 一直由 entrypoint 的 `db push` 同步 schema（无 `_prisma_migrations` 历史），直接 `migrate deploy` 会因 `CREATE TABLE "User"` 撞表报错。本次部署后（db push 已自动建好 2 张新表 + 复合索引）在 backend 容器执行 `prisma migrate resolve --applied` ×2 建立基线，`migrate status` = up to date
+- **⚠️ 下次发版建议**：entrypoint（`scripts/entrypoint-backend.sh`）从 `db push` 改为 `migrate deploy`。基线已建立，之后新增 migration 走 migrate deploy 流程；继续用 db push 会导致 migrations 与 DB 历史脱节
+- **⚠️ 部署前置**：生产仓库是 `cvbuilder2.0`（服务器 origin 指向它），本地开发仓库是 `fitback/cvbuilder`。触发 Deploy 前必须先把 main push 到 cvbuilder2.0，否则服务器拉到的是旧代码
 
 ### 服务器关键路径
 
