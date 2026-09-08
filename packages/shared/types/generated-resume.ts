@@ -1,7 +1,11 @@
+export const TEMPLATE_IDS = ["modern", "classic", "compact", "creative"] as const;
+export type TemplateId = (typeof TEMPLATE_IDS)[number];
+
 export interface GeneratedResumeItem {
   id: string;
   name: string;
   snippet: string;
+  templateId: string;
   resumeId?: string;
   analysisRecordId?: string;
   createdAt: string;
@@ -15,6 +19,7 @@ export interface GeneratedResumeDetail extends GeneratedResumeItem {
 export interface CreateGeneratedResumeRequest {
   name: string;
   content: string;
+  templateId?: string;
   resumeId?: string;
   analysisRecordId?: string;
 }
@@ -22,4 +27,5 @@ export interface CreateGeneratedResumeRequest {
 export interface UpdateGeneratedResumeRequest {
   name: string;
   content: string;
+  templateId?: string;
 }

@@ -65,6 +65,14 @@ export class GenerateService {
       throw new HttpException({ code: ErrorCode.PARSE_FAILED, message: "分析尚未完成" }, 422);
     }
 
+    // Fetch JD so we can pass its title/company/content to the generate prompt.
+    // Without this, the AI has no way to know the target position and would
+    // hallucinate a job title from the candidate's resume content.
+    const jd = await this.prisma.jobDescription.findUnique({ where: { id: analysis.jobDescriptionId } });
+    if (!jd) {
+      throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "目标岗位不存在" }, 404);
+    }
+
     const analysisResult = analysis.analysisResult as unknown as AnalysisResult;
 
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
@@ -80,7 +88,12 @@ export class GenerateService {
           { role: "system", content: GENERATE_PROMPT },
           {
             role: "user",
-            content: `优化建议：${JSON.stringify(analysisResult.optimizationSuggestions ?? [])}\n\n排雷清单：${JSON.stringify(analysisResult.detailChecklist ?? [])}\n\n原始简历JSON：${JSON.stringify(resume.parseResult)}`,
+            content:
+              `目标岗位：${jd.title}${jd.company ? ` | 公司：${jd.company}` : ""}\n\n` +
+              `优化建议：${JSON.stringify(analysisResult.optimizationSuggestions ?? [])}\n\n` +
+              `排雷清单：${JSON.stringify(analysisResult.detailChecklist ?? [])}\n\n` +
+              `原始简历JSON：${JSON.stringify(resume.parseResult)}\n\n` +
+              `JD内容：${jd.content}`,
           },
         ]),
       );

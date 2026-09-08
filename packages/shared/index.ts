@@ -7,3 +7,4 @@ export * from "./types/points";
 export * from "./types/generated-resume";
 export * from "./types/resume-version";
 export * from "./types/generated-resume-version";
+export * from "./types/templates";

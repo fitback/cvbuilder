@@ -122,6 +122,7 @@ model GeneratedResume {
   user             User                     @relation(fields: [userId], references: [id])
   name             String
   content          String
+  templateId       String                   @default("modern")
   resumeId         String?
   analysisRecordId String?
   createdAt        DateTime                 @default(now())

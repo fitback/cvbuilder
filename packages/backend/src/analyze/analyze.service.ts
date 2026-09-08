@@ -87,7 +87,13 @@ export class AnalyzeService {
       const analysisResult = await breaker.call(() =>
         callDeepSeek([
           { role: "system", content: ANALYZE_PROMPT },
-          { role: "user", content: `简历JSON：${JSON.stringify(resume.parseResult)}\n\nJD内容：${jd.content}` },
+          {
+            role: "user",
+            content:
+              `简历JSON：${JSON.stringify(resume.parseResult)}\n\n` +
+              `目标岗位：${jd.title}${jd.company ? ` | 公司：${jd.company}` : ""}\n\n` +
+              `JD内容：${jd.content}`,
+          },
         ]),
       );
 

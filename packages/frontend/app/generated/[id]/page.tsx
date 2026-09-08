@@ -7,7 +7,7 @@ import { GeneratedResumeDetail } from "@cvbuilder/shared";
 import { Button } from "../../../components/Button";
 import VersionHistoryModal from "../../../components/VersionHistoryModal";
 import ExportPreviewModal, { buildExportWarnings, ExportFormat } from "../../../components/ExportPreviewModal";
-import { marked } from "marked";
+import TemplateSelector from "../../../components/TemplateSelector";
 import {
   FileText, AlertCircle, RefreshCw, Check, Copy, Download,
   ChevronDown, Sparkles, Columns, MoreHorizontal, History,
@@ -18,17 +18,6 @@ import { useModalA11y } from "../../../lib/useModalA11y";
 
 const API = API_BASE;
 
-function renderPreviewHtml(md: string): string {
-  return (marked.parse(md) as string)
-    .replace(/<h1/g, '<h1 style="font-size:18pt;font-weight:700;margin-bottom:0.3cm"')
-    .replace(/<h2/g, '<h2 style="font-size:13pt;font-weight:600;margin-top:0.6cm;margin-bottom:0.2cm;border-bottom:1px solid #D4D4D4;padding-bottom:0.1cm"')
-    .replace(/<h3/g, '<h3 style="font-size:11pt;font-weight:600;margin-top:0.4cm;margin-bottom:0.15cm"')
-    .replace(/<p/g, '<p style="margin:0.15cm 0"')
-    .replace(/<ul/g, '<ul style="margin:0.1cm 0;padding-left:1.2em"')
-    .replace(/<li/g, '<li style="margin-bottom:0.08cm"')
-    .replace(/<strong/g, '<strong style="font-weight:600;color:#B75C3A"');
-}
-
 type AutoSaveStatus = "idle" | "saving" | "saved" | "error";
 
 export default function GeneratedResumeEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +27,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+  const [templateId, setTemplateId] = useState("modern");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showPreview, setShowPreview] = useState(false);
@@ -53,14 +43,19 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
   const [versionRestoring, setVersionRestoring] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
   const originalContent = useRef("");
+  const originalTemplateId = useRef("modern");
   const moreRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPreviewKey = useRef("");
   const { toast } = useToast();
   const router = useRouter();
   const leaveDialogRef = useModalA11y(showLeaveConfirm, () => setShowLeaveConfirm(false));
 
-  const isDirty = content !== originalContent.current;
+  const isDirty = content !== originalContent.current || templateId !== originalTemplateId.current;
 
   // Ctrl/Cmd+S to save
   useEffect(() => {
@@ -90,7 +85,10 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           setRecord(json.data);
           setName(json.data.name);
           setContent(json.data.content);
+          const tId = json.data.templateId || "modern";
+          setTemplateId(tId);
           originalContent.current = json.data.content;
+          originalTemplateId.current = tId;
           setLastSaved(new Date(json.data.updatedAt));
         } else {
           setError(json.error?.message ?? "加载失败");
@@ -116,19 +114,20 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
 
   const doAutoSave = useCallback(async () => {
     if (!content || !record) return;
-    // Skip if content unchanged since last save
-    if (content === originalContent.current) return;
+    // Skip if content & template unchanged since last save
+    if (content === originalContent.current && templateId === originalTemplateId.current) return;
     setAutoSaveStatus("saving");
     dispatchSave("saving");
     try {
       const res = await apiFetch(`${API}/generated-resumes/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, content }),
+        body: JSON.stringify({ name, content, templateId }),
       });
       const json = await res.json();
       if (json.success) {
         setAutoSaveStatus("saved");
         originalContent.current = content;
+        originalTemplateId.current = templateId;
         setLastSaved(new Date());
         setTimeout(() => { setAutoSaveStatus("idle"); dispatchSave("idle"); }, 3000);
       } else {
@@ -141,7 +140,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
       dispatchSave("error");
       setTimeout(() => { setAutoSaveStatus("idle"); dispatchSave("idle"); }, 5000);
     }
-  }, [id, content, name, record]);
+  }, [id, content, name, record, templateId]);
 
   // Debounced 2s auto-save: restart timer on each input change; clean up on unmount.
   useEffect(() => {
@@ -154,7 +153,36 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
         autoSaveTimer.current = null;
       }
     };
-  }, [content, name, record, isDirty, doAutoSave]);
+  }, [content, name, templateId, record, isDirty, doAutoSave]);
+
+  // Debounced 500ms preview fetch: only when split-view or modal is visible.
+  // Cache key = content+templateId hash; skip if same as last request.
+  useEffect(() => {
+    if (!content) return;
+    if (!showPreview && !splitView) return;
+    const key = `${templateId}::${content.length}::${content.slice(0, 64)}`;
+    if (key === lastPreviewKey.current) return;
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = setTimeout(async () => {
+      lastPreviewKey.current = key;
+      setPreviewLoading(true);
+      try {
+        const res = await apiFetch(`${API}/export/preview`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markdown: content, templateId }),
+        });
+        const json = await res.json();
+        if (json.success && json.data?.html) setPreviewHtml(json.data.html);
+      } catch { /* keep stale preview */ }
+      finally { setPreviewLoading(false); }
+    }, 500);
+    return () => {
+      if (previewTimer.current) {
+        clearTimeout(previewTimer.current);
+        previewTimer.current = null;
+      }
+    };
+  }, [content, templateId, showPreview, splitView]);
 
   // Load versions when opening the panel
   async function loadVersions() {
@@ -218,7 +246,7 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
     try {
       const res = await apiFetch(`${API}/export/${format}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown: content }),
+        body: JSON.stringify({ markdown: content, templateId }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
@@ -246,10 +274,12 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
     try {
       const res = await apiFetch(`${API}/generated-resumes/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), content }),
+        body: JSON.stringify({ name: name.trim(), content, templateId }),
       });
       const json = await res.json();
       if (!json.success) { setSaveError(json.error?.message ?? "保存失败"); return; }
+      originalContent.current = content;
+      originalTemplateId.current = templateId;
       toast("保存成功", "success");
       router.push("/dashboard");
     } catch { setSaveError("网络错误，请重试"); } finally { setSaving(false); }
@@ -353,6 +383,14 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
         {saveError && <p className="text-xs text-[#C75B5B] mt-1">{saveError}</p>}
       </div>
 
+      {/* Template picker — affects preview & PDF export. Persisted on save. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <label className="block text-xs font-medium text-[#6B6B6B] mb-1.5">简历模板</label>
+          <TemplateSelector value={templateId} onChange={setTemplateId} compact />
+        </div>
+      </div>
+
       {/* Editor area */}
       <div className={`grid ${splitView ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
         <div data-color-mode="light" className="responsive-md-editor rounded-xl overflow-hidden border border-[#EBEBEB]">
@@ -363,10 +401,15 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-2 px-4 py-2 border-b border-[#EBEBEB] bg-[#FAFAF9]">
               <FileText size={14} className="text-[#9E9E9E]" />
               <span className="text-xs text-[#6B6B6B] font-medium">A4 实时预览</span>
+              {previewLoading && <RefreshCw size={12} className="text-[#9E9E9E] animate-spin ml-auto" />}
             </div>
-            <div className="h-[400px] lg:h-[600px] p-6 overflow-auto">
-              <div className="mx-auto" style={{ maxWidth: "21cm", fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans CN",sans-serif', fontSize: "10.5pt", lineHeight: "1.5", color: "#2D2D2D" }}
-                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(content) }} />
+            <div className="h-[400px] lg:h-[600px]">
+              <iframe
+                title="简历预览"
+                srcDoc={previewHtml}
+                className="w-full h-full border-0 bg-white"
+                sandbox="allow-same-origin"
+              />
             </div>
           </div>
         )}
@@ -407,12 +450,15 @@ export default function GeneratedResumeEditPage({ params }: { params: Promise<{ 
           const { isEmpty, warnings } = buildExportWarnings(content);
           return (
             <ExportPreviewModal
-              html={renderPreviewHtml(content)}
+              html={previewHtml}
+              previewLoading={previewLoading}
               fileName={name.trim() || "resume"}
               isEmpty={isEmpty}
               warnings={warnings}
               exporting={exporting}
               error={exportError}
+              templateId={templateId}
+              onTemplateChange={setTemplateId}
               onExport={handleExport}
               onClose={() => setShowPreview(false)}
             />

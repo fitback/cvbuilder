@@ -1,7 +1,7 @@
 # ResumeMatcher 项目进展
 
 > 最后更新：2026-09-08
-> 当前版本：v0.9.0
+> 当前版本：v0.10.0
 
 ---
 
@@ -43,6 +43,7 @@
 | v0.7.1 | 2026-08-21 | 移除手动付款码上传、部署超时加固；充值保持电脑网站支付（page.pay，当面付为实体店场景不适用） |
 | v0.8.0 | 2026-09-08 | 简历版本系统（20 条快照/恢复/跨用户隔离）+ 编辑器易用性重构（折叠/标签技能/完整度/时间规范化/sticky 保存栏）+ 经历排序 bug 修复（解析层+展示层双重排序，最新在前）+ 35 个单元测试（支付幂等/积分扣减/缓存/限流/版本快照）+ JWT 弱密钥启动校验 + pending 充值 24h 自动过期 + 复合索引 + optimizePackageImports ✅ 已上线 |
 | v0.9.0 | 2026-09-08 | 可观测性：Pino 结构化 JSON 日志（dev 用 pino-pretty，prod JSON）+ requestId 串联每请求 + /metrics Prometheus 端点（process 指标 + 业务 gauge：resume/analysis/recharge/user 计数 + BullMQ 队列深度）+ AllExceptionsFilter 全局异常结构化日志（warn 业务错误 / error 未捕获异常，含 requestId/method/url/userId） |
+| v0.10.0 | 2026-09-08 | 业务功能扩展：简历模板系统（4 套视觉模板：现代简洁/经典商务/紧凑双栏/创意设计，后端模板注册表 + TemplatesService + ExportService 集成 + `POST /export/preview` 预览端点 + GeneratedResume.templateId 持久化）+ JD 编辑/查看/保存功能（PUT /jobs/:id + 详情弹窗查看/编辑模式切换）+ AI 生成质量修复（analyze/generate 两阶段都传入 JD title/company/content → 求职意向严格使用 JD title）+ 经历排序规则修复（generate-master.md 消除"相关性排序"与"时间倒序"矛盾，强制按时间倒序）+ 首次保存简历对话框集成 TemplateSelector + 保存后跳转 /generated/[id] 而非 dashboard |
 
 ### v0.6.0 详细变更
 

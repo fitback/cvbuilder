@@ -2,35 +2,10 @@ import { Injectable, HttpException, OnApplicationShutdown } from "@nestjs/common
 import { ErrorCode } from "@cvbuilder/shared";
 import { marked } from "marked";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { TemplatesService } from "../templates/templates.service";
+import type { TemplateInput } from "../templates/template.interface";
 
 const PUPPETEER_EXECUTABLE = process.env.PUPPETEER_EXECUTABLE_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-
-function buildHtml(markdown: string): string {
-  const body = marked.parse(markdown) as string;
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<style>
-  @page { size: A4; margin: 2.5cm; }
-  body {
-    font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", "Source Han Sans CN", sans-serif;
-    font-size: 10.5pt;
-    line-height: 1.5;
-    color: #2D2D2D;
-  }
-  h1 { font-size: 18pt; font-weight: 700; margin-bottom: 0.3cm; }
-  h2 { font-size: 13pt; font-weight: 600; margin-top: 0.6cm; margin-bottom: 0.2cm; border-bottom: 1px solid #D4D4D4; padding-bottom: 0.1cm; }
-  h3 { font-size: 11pt; font-weight: 600; margin-top: 0.4cm; margin-bottom: 0.15cm; }
-  p { margin: 0.15cm 0; }
-  ul { margin: 0.1cm 0; padding-left: 1.2em; }
-  li { margin-bottom: 0.08cm; }
-  strong { font-weight: 600; color: #B75C3A; }
-</style>
-</head>
-<body>${body}</body>
-</html>`;
-}
 
 function stripInlineFormatting(text: string): string {
   return text.replace(/\*\*([^*]+)\*\*/g, "$1");
@@ -156,6 +131,8 @@ async function getBrowser() {
 
 @Injectable()
 export class ExportService implements OnApplicationShutdown {
+  constructor(private readonly templates: TemplatesService) {}
+
   async onApplicationShutdown() {
     if (browserInstance) {
       try { await browserInstance.close(); } catch { /* ignore */ }
@@ -163,13 +140,23 @@ export class ExportService implements OnApplicationShutdown {
     }
   }
 
-  async exportPdf(markdown: string): Promise<Buffer> {
+  /**
+   * Render a resume to a complete HTML document using the specified template.
+   * Exposed publicly so the preview endpoint can return the same HTML that
+   * the PDF will be rendered from.
+   */
+  renderHtml(markdown: string, templateId: string = "modern", structured?: any): string {
+    const input: TemplateInput = { markdown, structured };
+    return this.templates.render(templateId, input);
+  }
+
+  async exportPdf(markdown: string, templateId: string = "modern", structured?: any): Promise<Buffer> {
     if (!markdown || markdown.trim().length < 50) {
       throw new HttpException({ code: ErrorCode.INVALID_PARAMS, message: "内容太短" }, 400);
     }
 
     try {
-      const html = buildHtml(markdown);
+      const html = this.renderHtml(markdown, templateId, structured);
       const browser = await getBrowser();
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 10000 });

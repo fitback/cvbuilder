@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { JobDescriptionItem } from "@cvbuilder/shared";
+import { JobDescriptionDetail, JobDescriptionItem } from "@cvbuilder/shared";
 import { Button } from "../../components/Button";
-import { Briefcase, Plus, Trash2, AlertCircle, RefreshCw } from "../../components/icons";
+import { Briefcase, Plus, Trash2, AlertCircle, RefreshCw, X, Edit3, Save } from "../../components/icons";
 import { useToast } from "../../components/Toast";
 import { useModalA11y } from "../../lib/useModalA11y";
 import { apiFetch, API_BASE } from "../../lib/auth";
 
 const API = API_BASE;
+
+type Mode = "view" | "edit";
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<JobDescriptionItem[]>([]);
@@ -20,8 +22,20 @@ export default function JobsPage() {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  // Detail/edit modal state
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<JobDescriptionDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [mode, setMode] = useState<Mode>("view");
+  const [editTitle, setEditTitle] = useState("");
+  const [editCompany, setEditCompany] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [savingEdits, setSavingEdits] = useState(false);
+
   const { toast } = useToast();
   const deleteDialogRef = useModalA11y(Boolean(deleteTarget), () => setDeleteTarget(null));
+  const editDialogRef = useModalA11y(Boolean(activeJobId), () => closeDetailModal());
 
   async function fetchJobs() {
     try {
@@ -56,6 +70,88 @@ export default function JobsPage() {
       toast("创建失败，请重试", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Open detail modal — fetch full JD
+  async function openDetail(job: JobDescriptionItem) {
+    setActiveJobId(job.id);
+    setMode("view");
+    setActiveJob(null);
+    setLoadingDetail(true);
+    try {
+      const res = await apiFetch(`${API}/jobs/${job.id}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setActiveJob(json.data);
+        setEditTitle(json.data.title);
+        setEditCompany(json.data.company ?? "");
+        setEditContent(json.data.content);
+      } else {
+        toast(json.error?.message ?? "加载失败", "error");
+        closeDetailModal();
+      }
+    } catch {
+      toast("加载失败，请重试", "error");
+      closeDetailModal();
+    } finally {
+      setLoadingDetail(false);
+    }
+  }
+
+  function closeDetailModal() {
+    setActiveJobId(null);
+    setActiveJob(null);
+    setMode("view");
+  }
+
+  function enterEditMode() {
+    if (!activeJob) return;
+    setEditTitle(activeJob.title);
+    setEditCompany(activeJob.company ?? "");
+    setEditContent(activeJob.content);
+    setMode("edit");
+  }
+
+  function cancelEdit() {
+    if (!activeJob) { closeDetailModal(); return; }
+    setEditTitle(activeJob.title);
+    setEditCompany(activeJob.company ?? "");
+    setEditContent(activeJob.content);
+    setMode("view");
+  }
+
+  async function saveEdits() {
+    if (!activeJobId || !activeJob) return;
+    if (!editTitle.trim() || !editContent.trim()) {
+      toast("职位名称和 JD 内容不能为空", "error");
+      return;
+    }
+    setSavingEdits(true);
+    try {
+      const res = await apiFetch(`${API}/jobs/${activeJobId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editTitle,
+          company: editCompany || undefined,
+          content: editContent,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setActiveJob(json.data);
+        toast("保存成功", "success");
+        setMode("view");
+        await fetchJobs();
+      } else {
+        toast(json.error?.message ?? "保存失败", "error");
+      }
+    } catch {
+      toast("保存失败，请重试", "error");
+    } finally {
+      setSavingEdits(false);
     }
   }
 
@@ -175,10 +271,11 @@ export default function JobsPage() {
             <div
               key={j.id}
               className="group flex items-center justify-between p-4 bg-white border border-[#EBEBEB] rounded-lg
-                         transition-all duration-200 ease-out
+                         transition-all duration-200 ease-out cursor-pointer
                          hover:border-[#D4D4D4] hover:shadow-sm hover:-translate-y-[0.5px]
                          active:scale-[0.995] animate-[staggerIn_300ms_ease-out_both]"
               style={{ animationDelay: `${i * 60}ms` }}
+              onClick={() => openDetail(j)}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="shrink-0 w-10 h-10 rounded-lg bg-[#F5F4F2] flex items-center justify-center
@@ -196,7 +293,10 @@ export default function JobsPage() {
                 variant="ghost"
                 size="sm"
                 icon={<Trash2 size={14} />}
-                onClick={() => setDeleteTarget({ id: j.id, title: j.title })}
+                onClick={(e: any) => {
+                  e.stopPropagation();
+                  setDeleteTarget({ id: j.id, title: j.title });
+                }}
                 className="max-md:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 aria-label={`删除 ${j.title}`}
               >
@@ -204,6 +304,130 @@ export default function JobsPage() {
               </Button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Detail / Edit modal */}
+      {activeJobId && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-[fadeIn_150ms_ease-out] p-4"
+          onClick={closeDetailModal}
+        >
+          <div
+            ref={editDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="jobs-detail-title"
+            className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EBEBEB]">
+              <h3 id="jobs-detail-title" className="text-lg font-semibold text-[#1A1A1A] truncate">
+                {mode === "edit" ? "编辑 JD" : (activeJob?.title ?? "JD 详情")}
+              </h3>
+              <button
+                type="button"
+                onClick={closeDetailModal}
+                className="p-1 rounded text-[#6B6B6B] hover:bg-[#F5F4F2] hover:text-[#1A1A1A] transition-colors"
+                aria-label="关闭"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="flex-1 overflow-auto px-6 py-5">
+              {loadingDetail ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-[#B75C3A] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : activeJob ? (
+                mode === "view" ? (
+                  <div className="space-y-4 animate-[fadeIn_150ms_ease-out]">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-xs text-[#9E9E9E] mb-1">职位名称</div>
+                        <div className="text-[#2D2D2D] font-medium">{activeJob.title}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-[#9E9E9E] mb-1">公司</div>
+                        <div className="text-[#2D2D2D] font-medium">{activeJob.company || "—"}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-[#9E9E9E] mb-1">创建时间</div>
+                        <div className="text-[#2D2D2D]">{new Date(activeJob.createdAt).toLocaleString("zh-CN")}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-[#9E9E9E] mb-2">JD 正文</div>
+                      <div className="text-sm text-[#2D2D2D] whitespace-pre-wrap leading-relaxed bg-[#FAFAF9] rounded-lg p-4 border border-[#EBEBEB] max-h-[50vh] overflow-auto">
+                        {activeJob.content}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 animate-[fadeIn_150ms_ease-out]">
+                    <div>
+                      <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">职位名称 *</label>
+                      <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-[#D4D4D4] rounded-lg text-sm focus:border-[#B75C3A] focus:ring-2 focus:ring-[#B75C3A]/15 outline-none transition-all duration-150"
+                        placeholder="如：高级前端工程师"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">公司名称</label>
+                      <input
+                        value={editCompany}
+                        onChange={(e) => setEditCompany(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-[#D4D4D4] rounded-lg text-sm focus:border-[#B75C3A] focus:ring-2 focus:ring-[#B75C3A]/15 outline-none transition-all duration-150"
+                        placeholder="选填"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">JD 正文 *</label>
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={10}
+                        className="w-full px-3 py-2.5 border border-[#D4D4D4] rounded-lg text-sm focus:border-[#B75C3A] focus:ring-2 focus:ring-[#B75C3A]/15 outline-none transition-all duration-150 resize-y"
+                        placeholder="粘贴岗位描述的完整内容..."
+                      />
+                    </div>
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[#EBEBEB] bg-[#FAFAF9] rounded-b-xl">
+              {mode === "view" ? (
+                <>
+                  <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => {
+                    if (!activeJob) return;
+                    setDeleteTarget({ id: activeJob.id, title: activeJob.title });
+                    closeDetailModal();
+                  }}>
+                    删除
+                  </Button>
+                  <Button variant="primary" size="sm" icon={<Edit3 size={14} />} onClick={enterEditMode} disabled={!activeJob}>
+                    编辑
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" size="sm" onClick={cancelEdit} disabled={savingEdits}>
+                    取消
+                  </Button>
+                  <Button variant="primary" size="sm" icon={<Save size={14} />} onClick={saveEdits} loading={savingEdits} disabled={!editTitle.trim() || !editContent.trim()}>
+                    保存
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

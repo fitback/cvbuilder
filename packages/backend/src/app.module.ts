@@ -18,6 +18,7 @@ import { PaymentModule } from "./payment/payment.module";
 import { HealthModule } from "./health/health.module";
 import { CacheModule } from "./common/cache/cache.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { TemplatesModule } from "./templates/templates.module";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -56,7 +57,7 @@ const isProd = process.env.NODE_ENV === "production";
     PrismaModule, AuthModule, ResumesModule, JobsModule,
     AnalyzeModule, GenerateModule, ExportModule,
     PointsModule, RechargesModule, GeneratedResumesModule, PaymentModule,
-    HealthModule, MetricsModule,
+    HealthModule, MetricsModule, TemplatesModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

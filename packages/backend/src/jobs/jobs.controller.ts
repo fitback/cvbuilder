@@ -1,11 +1,12 @@
-import { Controller, Post, Get, Delete, Param, Body, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Controller, Post, Get, Put, Delete, Param, Body, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { JobsService } from "./jobs.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import { CacheService } from "../common/cache/cache.service";
-import { CreateJobResponse, JobDescriptionItem } from "@cvbuilder/shared";
+import { CreateJobResponse, JobDescriptionDetail, JobDescriptionItem } from "@cvbuilder/shared";
 import { CreateJobDto } from "./dto/create-job.dto";
+import { UpdateJobDto } from "./dto/update-job.dto";
 
 @Controller("jobs")
 @UseGuards(AuthGuard)
@@ -29,10 +30,20 @@ export class JobsController {
   }
 
   @Get(":id")
-  async detail(@Param("id") id: string, @Req() req: any) {
+  async detail(@Param("id") id: string, @Req() req: any): Promise<JobDescriptionDetail> {
     return this.cache.getOrSet(`cache:jobs:${id}`, 60, () =>
       this.jobsService.detail(id, req.userId)
     );
+  }
+
+  @Put(":id")
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  async update(
+    @Param("id") id: string,
+    @Body() body: UpdateJobDto,
+    @Req() req: any,
+  ): Promise<JobDescriptionDetail> {
+    return this.jobsService.update(id, req.userId, body);
   }
 
   @Delete(":id")

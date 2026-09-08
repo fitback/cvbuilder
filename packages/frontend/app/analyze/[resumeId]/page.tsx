@@ -14,6 +14,7 @@ import { useToast } from "../../../components/Toast";
 import { apiFetch, API_BASE } from "../../../lib/auth";
 import { getErrorMessage } from "../../../lib/error-codes";
 import { AnimatedNumber } from "../../../components/AnimatedNumber";
+import TemplateSelector from "../../../components/TemplateSelector";
 import InsufficientPoints from "../../../components/InsufficientPoints";
 import { useModalA11y } from "../../../lib/useModalA11y";
 
@@ -41,6 +42,7 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
   const [currentBalance, setCurrentBalance] = useState(0);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const [saveTemplateId, setSaveTemplateId] = useState("modern");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
@@ -229,10 +231,22 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
     if (!saveName.trim()) { setSaveError("请输入名称"); return; }
     setSaving(true); setSaveError("");
     try {
-      const res = await apiFetch(`${API}/generated-resumes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: saveName.trim(), content: generatedMarkdown }) });
+      const res = await apiFetch(`${API}/generated-resumes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: saveName.trim(), content: generatedMarkdown, templateId: saveTemplateId }),
+      });
       const json = await res.json();
       if (!json.success) { setSaveError(json.error?.message ?? "保存失败"); return; }
-      toast("保存成功", "success"); router.push("/dashboard");
+      toast("保存成功", "success");
+      // Jump to the generated resume editor so user can immediately see the
+      // selected template's preview and tweak if needed — instead of dashboard.
+      const newId = json.data?.id ?? json.generatedResumeId;
+      if (newId) {
+        router.push(`/generated/${newId}`);
+      } else {
+        router.push("/dashboard");
+      }
     } catch { setSaveError("网络错误，请重试"); } finally { setSaving(false); }
   }
 
@@ -620,14 +634,19 @@ export default function AnalyzePage({ params }: { params: Promise<{ resumeId: st
       {showInsufficient && <InsufficientPoints needed={pointsNeeded} current={currentBalance} onClose={() => setShowInsufficient(false)} />}
       {showSaveDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => !saving && setShowSaveDialog(false)}>
-          <div ref={saveDialogRef} role="dialog" aria-modal="true" aria-labelledby="analyze-save-title" className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div ref={saveDialogRef} role="dialog" aria-modal="true" aria-labelledby="analyze-save-title" className="bg-white rounded-xl p-6 w-full max-w-lg mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 id="analyze-save-title" className="text-lg font-semibold text-[#1A1A1A] mb-4">保存简历</h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#2D2D2D] mb-1">名称</label>
                 <input type="text" value={saveName} onChange={(e) => { setSaveName(e.target.value); setSaveError(""); }}
                   className="w-full px-3 py-2 border border-[#EBEBEB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#B75C3A]/30 focus:border-[#B75C3A]" placeholder="输入简历名称" disabled={saving} autoFocus />
                 {saveError && <p className="text-xs text-[#C75B5B] mt-1">{saveError}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#2D2D2D] mb-1.5">简历模板</label>
+                <TemplateSelector value={saveTemplateId} onChange={setSaveTemplateId} />
+                <p className="text-xs text-[#9E9E9E] mt-1.5">保存后可在编辑页继续切换模板</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">

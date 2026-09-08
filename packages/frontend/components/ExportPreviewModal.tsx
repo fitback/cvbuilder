@@ -3,16 +3,24 @@
 import { useEffect, useState } from "react";
 import { X, Download, Spinner, AlertCircle, CheckCircle } from "./icons";
 import { useModalA11y } from "../lib/useModalA11y";
+import TemplateSelector from "./TemplateSelector";
 
 export type ExportFormat = "pdf" | "docx";
 
 interface Props {
+  /** Pre-rendered HTML to show in the A4 preview pane. */
   html: string;
+  /** True while parent is re-rendering HTML (e.g. preview API in flight). */
+  previewLoading?: boolean;
   fileName: string;
   isEmpty: boolean;
   warnings: string[];
   exporting: boolean;
   error: string;
+  /** Currently selected template id. */
+  templateId: string;
+  /** Called when user picks a different template in the modal. */
+  onTemplateChange: (id: string) => void;
   onExport: (format: ExportFormat) => Promise<void> | void;
   onClose: () => void;
 }
@@ -31,11 +39,14 @@ export function buildExportWarnings(content: string): { isEmpty: boolean; warnin
 
 export default function ExportPreviewModal({
   html,
+  previewLoading,
   fileName,
   isEmpty,
   warnings,
   exporting,
   error,
+  templateId,
+  onTemplateChange,
   onExport,
   onClose,
 }: Props) {
@@ -77,48 +88,52 @@ export default function ExportPreviewModal({
           </button>
         </div>
 
-        {/* Pre-export checks */}
-        <div className="px-6 py-3 border-b border-[#EBEBEB] space-y-1.5">
-          {isEmpty ? (
-            <p className="text-sm text-[#C75B5B] flex items-center gap-2">
-              <AlertCircle size={14} className="shrink-0" />
-              内容为空，无法导出
-            </p>
-          ) : warnings.length === 0 ? (
-            <p className="text-sm text-[#5B8C5A] flex items-center gap-2">
-              <CheckCircle size={14} className="shrink-0" />
-              内容检查通过
-            </p>
-          ) : (
-            warnings.map((w, i) => (
-              <p key={i} className="text-sm text-[#C7953A] flex items-start gap-2">
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                <span>{w}</span>
+        {/* Pre-export checks + template picker */}
+        <div className="px-6 py-3 border-b border-[#EBEBEB] space-y-2.5">
+          <div className="space-y-1.5">
+            {isEmpty ? (
+              <p className="text-sm text-[#C75B5B] flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                内容为空，无法导出
               </p>
-            ))
-          )}
-          {error ? (
-            <p className="text-sm text-[#C75B5B] flex items-center gap-2 mt-1">
-              <AlertCircle size={14} className="shrink-0" />
-              <span>导出失败：{error}。可重试。</span>
-            </p>
-          ) : null}
+            ) : warnings.length === 0 ? (
+              <p className="text-sm text-[#5B8C5A] flex items-center gap-2">
+                <CheckCircle size={14} className="shrink-0" />
+                内容检查通过
+              </p>
+            ) : (
+              warnings.map((w, i) => (
+                <p key={i} className="text-sm text-[#C7953A] flex items-start gap-2">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>{w}</span>
+                </p>
+              ))
+            )}
+            {error ? (
+              <p className="text-sm text-[#C75B5B] flex items-center gap-2 mt-1">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>导出失败：{error}。可重试。</span>
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-[#6B6B6B] font-medium">模板</span>
+            <TemplateSelector value={templateId} onChange={onTemplateChange} compact />
+          </div>
         </div>
 
-        {/* A4 preview */}
-        <div className="flex-1 overflow-auto p-6 bg-[#FAFAF9]">
-          <div
-            className="mx-auto bg-white shadow-md"
-            style={{
-              maxWidth: "21cm",
-              minHeight: "29.7cm",
-              padding: "2.5cm",
-              fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC","Source Han Sans CN",sans-serif',
-              fontSize: "10.5pt",
-              lineHeight: "1.5",
-              color: "#2D2D2D",
-            }}
-            dangerouslySetInnerHTML={{ __html: html }}
+        {/* A4 preview — iframe with backend-rendered HTML (1:1 with PDF) */}
+        <div className="flex-1 overflow-auto p-6 bg-[#FAFAF9] relative">
+          {previewLoading && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
+              <div className="w-8 h-8 border-2 border-[#B75C3A] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          <iframe
+            title="简历预览"
+            srcDoc={html}
+            className="mx-auto bg-white shadow-md w-full h-[80vh] border-0"
+            sandbox="allow-same-origin"
           />
         </div>
 

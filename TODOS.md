@@ -16,6 +16,7 @@
 | P3 | 部署流水线修复（GitHub secrets / health 路径） | 🟡 代码侧完成（health 路径确认无误；仅缺 GitHub secrets 配置） |
 | P3 | 性能（代码分割 / 图片优化 / 索引审查） | ✅ 完成（optimizePackageImports + CSP 清理 + RechargeRecord 复合索引） |
 | P4 | 文档同步（TECH-DESIGN / AGENTS / TODOS） | ✅ 完成 |
+| **业务扩展** | **简历模板系统（4 套视觉模板）** | ✅ 完成（v0.10.0 — 4 模板 + TemplateSelector + 预览 API + 持久化） |
 
 ---
 
@@ -152,3 +153,62 @@ v0.5.2 已加 Redis 缓存（jobs / analyze / points / resumes）。
 1. 在 AGENTS.md 「Key Architecture」节后追加「版本历史与导出」段落
 2. TECH-DESIGN.md 补 v0.6.x / v0.7.x 安全加固 / 缓存 / 限流 / 版本系统章节
 3. PROGRESS.md 在版本变更记录追加 v0.8.0（执行完 P0 后）
+
+---
+
+## 业务扩展 — 简历模板系统
+
+**Spec 文档：** [docs/superpowers/specs/2026-09-08-resume-templates-design.md](./docs/superpowers/specs/2026-09-08-resume-templates-design.md)
+**Plan 文档：** [docs/superpowers/plans/2026-09-08-resume-templates-plan.md](./docs/superpowers/plans/2026-09-08-resume-templates-plan.md)
+**目标版本：** v0.10.0
+
+### 4 套内置模板
+
+| ID | 名称 | 适用 |
+|---|---|---|
+| `modern` | 现代简洁 | 互联网/技术岗 |
+| `classic` | 经典商务 | 金融/法律/国企 |
+| `compact` | 紧凑双栏 | 高级人才 |
+| `creative` | 创意设计 | 设计/创意岗 |
+
+### 执行任务（17 项）
+
+#### 阶段 1：后端模板基础设施（Task 1-7）
+
+- [ ] Task 1：定义 TemplateInput / ResumeTemplate 接口
+- [ ] Task 2：实现 modern 模板（迁移现有 buildHtml）
+- [ ] Task 3：实现 classic 模板
+- [ ] Task 4：实现 compact 模板（双栏）
+- [ ] Task 5：实现 creative 模板（banner + 头像位）
+- [ ] Task 6：TemplatesService + Module + Controller（`GET /templates`）
+- [ ] Task 7：扩展 ExportService + ExportDto 支持 templateId
+
+#### 阶段 2：数据模型 + API（Task 8-9）
+
+- [ ] Task 8：schema 加 `templateId` 字段 + migration
+- [ ] Task 9：GeneratedResume service/controller 支持 templateId
+
+#### 阶段 3：前端集成（Task 10-15）
+
+- [ ] Task 10：TemplateSelector 组件
+- [ ] Task 11：编辑页（generated/[id]）集成模板选择 + 持久化
+- [ ] Task 12：原始简历编辑页（resumes/[id]）集成
+- [ ] Task 13：ExportPreviewModal 集成模板选择
+- [ ] Task 14：新增 `POST /export/preview` 接口（返回 HTML）
+- [ ] Task 15：预览面板改用 iframe + preview API
+
+#### 阶段 4：缩略图 + 验收（Task 16-17）
+
+- [ ] Task 16：每模板 16:9 SVG 缩略图
+- [ ] Task 17：端到端验收（4 模板 × 编辑/预览/导出 + fallback + 多页测试）
+
+### 验收标准
+
+1. `GET /templates` 返回 4 项模板列表
+2. 同一 markdown 用 4 个 templateId 产出视觉明显不同的 PDF
+3. 编辑页选模板后刷新页面，模板选择保持
+4. 前端预览跟 PDF 输出 100% 视觉一致（同一 render 函数）
+5. 不存在的 templateId fallback 到 modern + 后端 warn
+6. 不传 templateId 默认 modern（向后兼容）
+7. compact 模板多页 PDF 分页不错位
+8. creative 模板多页 PDF banner 不重复

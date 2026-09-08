@@ -24,6 +24,7 @@ export class GeneratedResumesService {
         userId,
         name: dto.name,
         content: dto.content,
+        templateId: dto.templateId ?? "modern",
         resumeId: dto.resumeId,
         analysisRecordId: dto.analysisRecordId,
       },
@@ -33,6 +34,7 @@ export class GeneratedResumesService {
       id: record.id,
       name: record.name,
       snippet: record.content.slice(0, 120),
+      templateId: record.templateId,
       resumeId: record.resumeId ?? undefined,
       analysisRecordId: record.analysisRecordId ?? undefined,
       createdAt: record.createdAt.toISOString(),
@@ -50,6 +52,7 @@ export class GeneratedResumesService {
       id: r.id,
       name: r.name,
       snippet: r.content.slice(0, 120),
+      templateId: r.templateId,
       resumeId: r.resumeId ?? undefined,
       analysisRecordId: r.analysisRecordId ?? undefined,
       createdAt: r.createdAt.toISOString(),
@@ -68,6 +71,7 @@ export class GeneratedResumesService {
       name: record.name,
       snippet: record.content.slice(0, 120),
       content: record.content,
+      templateId: record.templateId,
       resumeId: record.resumeId ?? undefined,
       analysisRecordId: record.analysisRecordId ?? undefined,
       createdAt: record.createdAt.toISOString(),
@@ -93,11 +97,14 @@ export class GeneratedResumesService {
       }
     }
 
-    const hasChanges = dto.name !== record.name || dto.content !== record.content;
+    const nextTemplateId = dto.templateId && dto.templateId.trim() ? dto.templateId : record.templateId;
+    const hasChanges = dto.name !== record.name || dto.content !== record.content || nextTemplateId !== record.templateId;
     const updated = hasChanges
       ? await this.prisma.$transaction(async (tx) => {
-        await tx.generatedResumeVersion.create({ data: { generatedResumeId: id, name: record.name, content: record.content, source: "auto" } });
-        const next = await tx.generatedResume.update({ where: { id }, data: { name: dto.name, content: dto.content } });
+        if (dto.name !== record.name || dto.content !== record.content) {
+          await tx.generatedResumeVersion.create({ data: { generatedResumeId: id, name: record.name, content: record.content, source: "auto" } });
+        }
+        const next = await tx.generatedResume.update({ where: { id }, data: { name: dto.name, content: dto.content, templateId: nextTemplateId } });
         await this.trimVersions(tx, id);
         return next;
       })
@@ -107,6 +114,7 @@ export class GeneratedResumesService {
       id: updated.id,
       name: updated.name,
       snippet: updated.content.slice(0, 120),
+      templateId: updated.templateId,
       resumeId: updated.resumeId ?? undefined,
       analysisRecordId: updated.analysisRecordId ?? undefined,
       createdAt: updated.createdAt.toISOString(),
@@ -147,7 +155,7 @@ export class GeneratedResumesService {
       await this.trimVersions(tx, id);
       return next;
     });
-    return { id: updated.id, name: updated.name, snippet: updated.content.slice(0, 120), resumeId: updated.resumeId ?? undefined, analysisRecordId: updated.analysisRecordId ?? undefined, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() };
+    return { id: updated.id, name: updated.name, snippet: updated.content.slice(0, 120), templateId: updated.templateId, resumeId: updated.resumeId ?? undefined, analysisRecordId: updated.analysisRecordId ?? undefined, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() };
   }
 
   private async requireOwnedResume(id: string, userId: string) {
