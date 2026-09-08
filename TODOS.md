@@ -11,7 +11,7 @@
 | P1 | 测试覆盖（支付回调 / 积分扣减 / 缓存 / Throttler） | ✅ 完成（35 tests） |
 | P1 | 整理 42 个未推送 commit + 端到端验证 | ✅ 完成（版本校准/构建验证/dead code 排查） |
 | P2 | 安全加固剩余风险 | ✅ 完成（JWT 弱密钥启动校验；CORS/helmet/ValidationPipe 已确认就位；支付宝密钥/Turnstile 为 infra） |
-| P2 | 可观测性（结构化日志 / 指标 / 错误聚合） | 待执行 |
+| P2 | 可观测性（结构化日志 / 指标 / 错误聚合） | ✅ 完成（Pino JSON 日志 + requestId 串联 + /metrics Prometheus 端点 + AllExceptionsFilter 结构化错误日志） |
 | P2 | 线上数据库清理（pending 充值 / 测试账号） | ✅ 完成（24h 自动过期 cron + 前端 expired 状态适配） |
 | P3 | 部署流水线修复（GitHub secrets / health 路径） | 🟡 代码侧完成（health 路径确认无误；仅缺 GitHub secrets 配置） |
 | P3 | 性能（代码分割 / 图片优化 / 索引审查） | ✅ 完成（optimizePackageImports + CSP 清理 + RechargeRecord 复合索引） |

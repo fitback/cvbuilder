@@ -1,7 +1,7 @@
 # ResumeMatcher 项目进展
 
 > 最后更新：2026-09-08
-> 当前版本：v0.8.0
+> 当前版本：v0.9.0
 
 ---
 
@@ -42,6 +42,7 @@
 | v0.7.0 | 2026-08-20 | 本地 UI/UX 后续优化、管理员注册用户记录、开发构建缓存隔离 |
 | v0.7.1 | 2026-08-21 | 移除手动付款码上传、部署超时加固；充值保持电脑网站支付（page.pay，当面付为实体店场景不适用） |
 | v0.8.0 | 2026-09-08 | 简历版本系统（20 条快照/恢复/跨用户隔离）+ 编辑器易用性重构（折叠/标签技能/完整度/时间规范化/sticky 保存栏）+ 经历排序 bug 修复（解析层+展示层双重排序，最新在前）+ 35 个单元测试（支付幂等/积分扣减/缓存/限流/版本快照）+ JWT 弱密钥启动校验 + pending 充值 24h 自动过期 + 复合索引 + optimizePackageImports ✅ 已上线 |
+| v0.9.0 | 2026-09-08 | 可观测性：Pino 结构化 JSON 日志（dev 用 pino-pretty，prod JSON）+ requestId 串联每请求 + /metrics Prometheus 端点（process 指标 + 业务 gauge：resume/analysis/recharge/user 计数 + BullMQ 队列深度）+ AllExceptionsFilter 全局异常结构化日志（warn 业务错误 / error 未捕获异常，含 requestId/method/url/userId） |
 
 ### v0.6.0 详细变更
 
@@ -241,7 +242,13 @@ Worker (BullMQ) → 简历解析队列
 
 ## 六、上次工作到的位置
 
-**刚完成**（2026-09-08）：v0.8.0 简历版本系统 + 编辑器易用性 + 测试覆盖 + 排序 bug 修复
+**刚完成**（2026-09-08）：v0.9.0 可观测性三件套
+- **Pino 结构化日志**：nestjs-pino + pino-http，dev 用 pino-pretty 美化，prod 输出 JSON；每请求自动生成 `requestId`（uuid 或 `x-request-id` header），授权/cookie 字段自动 redact
+- **Prometheus metrics**：`/metrics` 端点暴露 process 指标（CPU/内存/event loop/GC）+ 6 个业务 gauge（resume_total 按 parseStatus 分组、generated_resume_total、analysis_total、recharge_total 按 status 分组、user_total、parse_queue_depth 按 state 分组：waiting/active/completed/failed/delayed），每次 scrape 自动刷新
+- **AllExceptionsFilter**：catch-all 全局异常过滤器，业务错误（4xx）记 warn、未捕获异常（Error/TypeError 等）记 error + 完整 stack，每条都带 requestId/method/url/userId，可 grep / 可接 Sentry
+- ⏳ **待办**：业务功能扩展（待定方向）；线上 nginx 需放行 `/metrics` 端点（或限制源 IP）；GitHub secrets 配置后才能用 Actions 部署
+
+**此前完成**（2026-09-08）：v0.8.0 简历版本系统 + 编辑器易用性 + 测试覆盖 + 排序 bug 修复
 - 简历版本系统：`ResumeVersion` / `GeneratedResumeVersion` 模型，20 条快照上限、跨用户隔离、恢复前写 `before_restore` 快照（spec 完整实现）
 - 编辑器易用性 P0：Section 可折叠 + ArrayCard 标题显示实际内容 + 底部 sticky 保存栏 + 标签式技能输入 + 自动保存状态可视化 + 描述字段折叠
 - 编辑器易用性 P1：宽屏默认分屏预览 + 完整度进度条（8 项检查，hover 显示缺失）+ 时间字段失焦自动规范化 `YYYY.MM`

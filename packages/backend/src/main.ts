@@ -3,6 +3,7 @@ import { resolve } from "path";
 config({ path: resolve(__dirname, "../.env") });
 
 import { NestFactory } from "@nestjs/core";
+import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -10,7 +11,8 @@ import { ValidationPipe } from "@nestjs/common";
 import { ValidationExceptionFilter } from "./common/validation-exception.filter";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
   app.use(cookieParser());
   app.use(helmet({
     contentSecurityPolicy: false,
