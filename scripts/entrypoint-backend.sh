@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Syncing database schema..."
-npx prisma db push --schema=packages/backend/prisma/schema.prisma --skip-generate
+echo "Applying database migrations..."
+npx prisma migrate deploy --schema=packages/backend/prisma/schema.prisma
 
 echo "Setting up admin account..."
 node packages/backend/dist/seed.js 2>/dev/null || echo "(admin setup skipped or already exists)"
