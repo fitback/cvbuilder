@@ -56,6 +56,28 @@ ${rawText}`;
   return JSON.parse(data.choices[0].message.content);
 }
 
+/**
+ * Extract a numeric sort key from a duration string's start date.
+ * Handles "2022.03 - 2024.06", "2020-2022", "2019.09 至今", "2018/09-2022/06", "2019年3月" etc.
+ * Returns a number like 202203; returns -1 if unparseable (sorts to the end).
+ */
+function startDateKey(duration: string | undefined): number {
+  if (!duration) return -1;
+  const m = duration.match(/(\d{4})[.\-/年]?\s*(\d{1,2})?/);
+  if (!m) return -1;
+  const year = parseInt(m[1], 10);
+  const month = m[2] ? parseInt(m[2], 10) : 0;
+  return year * 100 + month;
+}
+
+/** Sort work/project/education arrays newest-first by start date (stable). */
+function sortParseResult(result: any) {
+  const byStartDateDesc = (a: any, b: any) => startDateKey(b.duration) - startDateKey(a.duration);
+  if (Array.isArray(result.workExperience)) result.workExperience.sort(byStartDateDesc);
+  if (Array.isArray(result.projectExperience)) result.projectExperience.sort(byStartDateDesc);
+  if (Array.isArray(result.education)) result.education.sort(byStartDateDesc);
+}
+
 const worker = new Worker("resume-parse", async (job: Job) => {
   const { resumeId } = job.data;
   const resume = await prisma.resume.findUniqueOrThrow({ where: { id: resumeId } });
@@ -87,6 +109,9 @@ const worker = new Worker("resume-parse", async (job: Job) => {
     }
 
     const parseResult = await extractWithDeepSeek(rawText);
+    // Normalize order: newest first by start date, so multi-column resumes / AI reordering
+    // don't leave work/project/education entries in a scrambled sequence.
+    sortParseResult(parseResult);
     await prisma.resume.update({
       where: { id: resumeId },
       data: { parseResult, parseStatus: "parsed" },
