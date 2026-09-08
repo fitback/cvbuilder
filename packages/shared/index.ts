@@ -5,3 +5,5 @@ export * from "./types/analysis";
 export * from "./types/generate";
 export * from "./types/points";
 export * from "./types/generated-resume";
+export * from "./types/resume-version";
+export * from "./types/generated-resume-version";

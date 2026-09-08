@@ -41,6 +41,7 @@ model Resume {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   analysisRecords   AnalysisRecord[]
+  versions          ResumeVersion[]
 
   @@index([userId])
   @@index([parseStatus])
@@ -97,6 +98,7 @@ model RechargeRecord {
 
   @@index([userId])
   @@index([status])
+  @@index([status, createdAt])
   @@index([outTradeNo])
 }
 
@@ -115,16 +117,43 @@ model PointTransaction {
 }
 
 model GeneratedResume {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  name      String
-  content   String
-  resumeId  String?
+  id               String                   @id @default(uuid())
+  userId           String
+  user             User                     @relation(fields: [userId], references: [id])
+  name             String
+  content          String
+  resumeId         String?
   analysisRecordId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  versions         GeneratedResumeVersion[]
 
   @@unique([userId, name])
   @@index([userId])
+}
+
+model ResumeVersion {
+  id          String   @id @default(uuid())
+  resumeId    String
+  resume      Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  parseResult Json?
+  rawText     String?
+  source      String
+  label       String?
+  createdAt   DateTime @default(now())
+
+  @@index([resumeId, createdAt])
+}
+
+model GeneratedResumeVersion {
+  id                String          @id @default(uuid())
+  generatedResumeId String
+  generatedResume   GeneratedResume @relation(fields: [generatedResumeId], references: [id], onDelete: Cascade)
+  name              String
+  content           String
+  source            String
+  label             String?
+  createdAt         DateTime        @default(now())
+
+  @@index([generatedResumeId, createdAt])
 }

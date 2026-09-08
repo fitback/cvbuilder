@@ -5,7 +5,7 @@ import { ResumesService } from "./resumes.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
 import { CacheService } from "../common/cache/cache.service";
-import { UploadResponse, ResumeItem, ResumeDetail } from "@cvbuilder/shared";
+import { UploadResponse, ResumeItem, ResumeDetail, ResumeVersionItem, ResumeVersionDetail, CreateResumeVersionRequest } from "@cvbuilder/shared";
 
 @Controller("resumes")
 @UseGuards(AuthGuard)
@@ -28,6 +28,30 @@ export class ResumesController {
     return this.cache.getOrSet(`cache:resumes:list:${req.userId}`, 10, () =>
       this.resumesService.list(req.userId)
     );
+  }
+
+  @Get(":id/versions")
+  async listVersions(@Param("id") id: string, @Req() req: any): Promise<ResumeVersionItem[]> {
+    return this.resumesService.listVersions(id, req.userId);
+  }
+
+  @Post(":id/versions")
+  async createVersion(
+    @Param("id") id: string,
+    @Body() body: CreateResumeVersionRequest,
+    @Req() req: any,
+  ): Promise<ResumeVersionItem> {
+    return this.resumesService.createVersion(id, req.userId, body.label);
+  }
+
+  @Get(":id/versions/:versionId")
+  async versionDetail(@Param("id") id: string, @Param("versionId") versionId: string, @Req() req: any): Promise<ResumeVersionDetail> {
+    return this.resumesService.versionDetail(id, versionId, req.userId);
+  }
+
+  @Post(":id/versions/:versionId/restore")
+  async restoreVersion(@Param("id") id: string, @Param("versionId") versionId: string, @Req() req: any): Promise<ResumeDetail> {
+    return this.resumesService.restoreVersion(id, versionId, req.userId);
   }
 
   @Get(":id")

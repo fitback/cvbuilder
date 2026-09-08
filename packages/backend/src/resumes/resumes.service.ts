@@ -1,7 +1,7 @@
 import { Injectable, HttpException, Inject, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../common/cache/cache.service";
-import { UploadResponse, ErrorCode, ResumeItem, ResumeDetail, ParseStatus, ParseResult } from "@cvbuilder/shared";
+import { UploadResponse, ErrorCode, ResumeItem, ResumeDetail, ParseStatus, ParseResult, ResumeVersionItem, ResumeVersionDetail, VersionSource } from "@cvbuilder/shared";
 import { v4 as uuid } from "uuid";
 import * as fs from "fs";
 import * as path from "path";
@@ -12,6 +12,8 @@ const ALLOWED_TYPES: Record<string, "pdf" | "docx"> = {
   "application/pdf": "pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
+
+const VERSION_LIMIT = 20;
 
 @Injectable()
 export class ResumesService {
@@ -143,8 +145,17 @@ export class ResumesService {
     if (body.parseResult !== undefined) data.parseResult = body.parseResult;
     if (body.rawText !== undefined) data.rawText = body.rawText;
 
-    if (Object.keys(data).length > 0) {
-      await this.prisma.resume.update({ where: { id }, data });
+    const hasChanges = (data.parseResult !== undefined && JSON.stringify(data.parseResult) !== JSON.stringify(resume.parseResult))
+      || (data.rawText !== undefined && data.rawText !== resume.rawText);
+
+    if (hasChanges) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.resumeVersion.create({
+          data: { resumeId: id, parseResult: resume.parseResult ?? undefined, rawText: resume.rawText, source: "auto" },
+        });
+        await tx.resume.update({ where: { id }, data });
+        await this.trimVersions(tx, id);
+      });
       await this.cache.del(`cache:resumes:list:${userId}`);
     }
 
@@ -165,6 +176,59 @@ export class ResumesService {
       parseResult: updated!.parseResult as ParseResult | null,
       rawText: updated!.rawText,
     };
+  }
+
+  async listVersions(id: string, userId: string): Promise<ResumeVersionItem[]> {
+    await this.requireOwnedResume(id, userId);
+    const versions = await this.prisma.resumeVersion.findMany({ where: { resumeId: id }, orderBy: { createdAt: "desc" } });
+    return versions.map((version) => this.versionItem(version));
+  }
+
+  async createVersion(id: string, userId: string, label?: string): Promise<ResumeVersionItem> {
+    const resume = await this.requireOwnedResume(id, userId);
+    return this.prisma.$transaction(async (tx) => {
+      const version = await tx.resumeVersion.create({
+        data: { resumeId: id, parseResult: resume.parseResult ?? undefined, rawText: resume.rawText, source: "manual", label },
+      });
+      await this.trimVersions(tx, id);
+      return this.versionItem(version);
+    });
+  }
+
+  async versionDetail(id: string, versionId: string, userId: string): Promise<ResumeVersionDetail> {
+    await this.requireOwnedResume(id, userId);
+    const version = await this.prisma.resumeVersion.findFirst({ where: { id: versionId, resumeId: id } });
+    if (!version) throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "版本不存在" }, 404);
+    return { ...this.versionItem(version), parseResult: version.parseResult as ParseResult | null, rawText: version.rawText };
+  }
+
+  async restoreVersion(id: string, versionId: string, userId: string): Promise<ResumeDetail> {
+    const resume = await this.requireOwnedResume(id, userId);
+    const version = await this.prisma.resumeVersion.findFirst({ where: { id: versionId, resumeId: id } });
+    if (!version) throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "版本不存在" }, 404);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.resumeVersion.create({ data: { resumeId: id, parseResult: resume.parseResult ?? undefined, rawText: resume.rawText, source: "before_restore" } });
+      await tx.resume.update({ where: { id }, data: { parseResult: version.parseResult ?? undefined, rawText: version.rawText } });
+      await tx.resumeVersion.create({ data: { resumeId: id, parseResult: version.parseResult ?? undefined, rawText: version.rawText, source: "auto" } });
+      await this.trimVersions(tx, id);
+    });
+    await this.cache.del(`cache:resumes:list:${userId}`);
+    return this.detail(id, userId);
+  }
+
+  private async requireOwnedResume(id: string, userId: string) {
+    const resume = await this.prisma.resume.findUnique({ where: { id } });
+    if (!resume || resume.userId !== userId) throw new HttpException({ code: ErrorCode.RESOURCE_NOT_FOUND, message: "简历不存在" }, 404);
+    return resume;
+  }
+
+  private versionItem(version: { id: string; label: string | null; source: string; createdAt: Date }): ResumeVersionItem {
+    return { id: version.id, label: version.label ?? undefined, source: version.source as VersionSource, createdAt: version.createdAt.toISOString() };
+  }
+
+  private async trimVersions(tx: any, resumeId: string): Promise<void> {
+    const excess = await tx.resumeVersion.findMany({ where: { resumeId }, orderBy: { createdAt: "desc" }, skip: VERSION_LIMIT, select: { id: true } });
+    if (excess.length > 0) await tx.resumeVersion.deleteMany({ where: { id: { in: excess.map((version: { id: string }) => version.id) } } });
   }
 
   async delete(id: string, userId: string): Promise<{ success: true }> {

@@ -2,7 +2,7 @@ import { Controller, Post, Get, Put, Delete, Param, Body, Req, UseGuards, UseInt
 import { GeneratedResumesService } from "./generated-resumes.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor";
-import { GeneratedResumeItem, GeneratedResumeDetail, CreateGeneratedResumeRequest, UpdateGeneratedResumeRequest } from "@cvbuilder/shared";
+import { GeneratedResumeItem, GeneratedResumeDetail, CreateGeneratedResumeRequest, UpdateGeneratedResumeRequest, GeneratedResumeVersionItem, GeneratedResumeVersionDetail, CreateGeneratedResumeVersionRequest } from "@cvbuilder/shared";
 
 @Controller("generated-resumes")
 @UseGuards(AuthGuard)
@@ -18,6 +18,30 @@ export class GeneratedResumesController {
   @Get()
   async list(@Req() req: any): Promise<GeneratedResumeItem[]> {
     return this.service.list(req.userId);
+  }
+
+  @Get(":id/versions")
+  async listVersions(@Param("id") id: string, @Req() req: any): Promise<GeneratedResumeVersionItem[]> {
+    return this.service.listVersions(id, req.userId);
+  }
+
+  @Post(":id/versions")
+  async createVersion(
+    @Param("id") id: string,
+    @Body() body: CreateGeneratedResumeVersionRequest,
+    @Req() req: any,
+  ): Promise<GeneratedResumeVersionItem> {
+    return this.service.createVersion(id, req.userId, body.label);
+  }
+
+  @Get(":id/versions/:versionId")
+  async versionDetail(@Param("id") id: string, @Param("versionId") versionId: string, @Req() req: any): Promise<GeneratedResumeVersionDetail> {
+    return this.service.versionDetail(id, versionId, req.userId);
+  }
+
+  @Post(":id/versions/:versionId/restore")
+  async restoreVersion(@Param("id") id: string, @Param("versionId") versionId: string, @Req() req: any): Promise<GeneratedResumeItem> {
+    return this.service.restoreVersion(id, versionId, req.userId);
   }
 
   @Get(":id")
