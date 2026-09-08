@@ -8,7 +8,6 @@ import { AppModule } from "./app.module";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { ValidationPipe } from "@nestjs/common";
-import { ValidationExceptionFilter } from "./common/validation-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -23,7 +22,6 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
-  app.useGlobalFilters(new ValidationExceptionFilter());
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const allowed = process.env.CORS_ORIGIN;
