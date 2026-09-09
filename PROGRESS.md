@@ -42,8 +42,8 @@
 | v0.7.0 | 2026-08-20 | 本地 UI/UX 后续优化、管理员注册用户记录、开发构建缓存隔离 |
 | v0.7.1 | 2026-08-21 | 移除手动付款码上传、部署超时加固；充值保持电脑网站支付（page.pay，当面付为实体店场景不适用） |
 | v0.8.0 | 2026-09-08 | 简历版本系统（20 条快照/恢复/跨用户隔离）+ 编辑器易用性重构（折叠/标签技能/完整度/时间规范化/sticky 保存栏）+ 经历排序 bug 修复（解析层+展示层双重排序，最新在前）+ 35 个单元测试（支付幂等/积分扣减/缓存/限流/版本快照）+ JWT 弱密钥启动校验 + pending 充值 24h 自动过期 + 复合索引 + optimizePackageImports ✅ 已上线 |
-| v0.9.0 | 2026-09-08 | 可观测性：Pino 结构化 JSON 日志（dev 用 pino-pretty，prod JSON）+ requestId 串联每请求 + /metrics Prometheus 端点（process 指标 + 业务 gauge：resume/analysis/recharge/user 计数 + BullMQ 队列深度）+ AllExceptionsFilter 全局异常结构化日志（warn 业务错误 / error 未捕获异常，含 requestId/method/url/userId） |
-| v0.10.0 | 2026-09-08 | 业务功能扩展：简历模板系统（4 套视觉模板：现代简洁/经典商务/紧凑双栏/创意设计，后端模板注册表 + TemplatesService + ExportService 集成 + `POST /export/preview` 预览端点 + GeneratedResume.templateId 持久化）+ JD 编辑/查看/保存功能（PUT /jobs/:id + 详情弹窗查看/编辑模式切换）+ AI 生成质量修复（analyze/generate 两阶段都传入 JD title/company/content → 求职意向严格使用 JD title）+ 经历排序规则修复（generate-master.md 消除"相关性排序"与"时间倒序"矛盾，强制按时间倒序）+ 首次保存简历对话框集成 TemplateSelector + 保存后跳转 /generated/[id] 而非 dashboard |
+| v0.9.0 | 2026-09-08 | 可观测性：Pino 结构化 JSON 日志（dev 用 pino-pretty，prod JSON）+ requestId 串联每请求 + /metrics Prometheus 端点（process 指标 + 业务 gauge：resume/analysis/recharge/user 计数 + BullMQ 队列深度）+ AllExceptionsFilter 全局异常结构化日志（warn 业务错误 / error 未捕获异常，含 requestId/method/url/userId） ✅ 已上线（随 v0.10.0，2026-09-09） |
+| v0.10.0 | 2026-09-08 | 业务功能扩展：简历模板系统（4 套视觉模板：现代简洁/经典商务/紧凑双栏/创意设计，后端模板注册表 + TemplatesService + ExportService 集成 + `POST /export/preview` 预览端点 + GeneratedResume.templateId 持久化）+ JD 编辑/查看/保存功能（PUT /jobs/:id + 详情弹窗查看/编辑模式切换）+ AI 生成质量修复（analyze/generate 两阶段都传入 JD title/company/content → 求职意向严格使用 JD title）+ 经历排序规则修复（generate-master.md 消除"相关性排序"与"时间倒序"矛盾，强制按时间倒序）+ 首次保存简历对话框集成 TemplateSelector + 保存后跳转 /generated/[id] 而非 dashboard ✅ 已上线（2026-09-09） |
 
 ### v0.6.0 详细变更
 
@@ -319,7 +319,7 @@ Worker (BullMQ) → 简历解析队列
 
 - **GitHub Actions**：两个 workflow 文件
   - `ci.yml`：推送到非 main 分支时自动类型检查 + Docker 构建验证
-  - `deploy.yml`：手动触发（workflow_dispatch），SSH 到 ECS 执行 `git fetch + reset --hard origin/main` → **先停全部容器** → `docker compose up -d --build` → 健康检查（SSH 命令超时 30m、job 45m、健康检查重试 24 次；构建期间站点停机）
+  - `deploy.yml`：手动触发（workflow_dispatch），SSH 到 ECS 执行 `git fetch + reset --hard origin/main` → **先停全部容器** → `docker compose up -d --build` → 健康检查（SSH 命令超时 60m、job 75m、健康检查重试 24 次；构建期间站点停机）
 - **服务器**：阿里云 ECS (Ubuntu 22.04)，IP `8.160.123.149`
   - 代码路径 `/opt/cvbuilder`，已初始化为 git 仓库，关联 `github.com:fitback/cvbuilder2.0`
   - SSH 部署密钥已配置（`~/.ssh/github-deploy` → GitHub Deploy Key）
@@ -331,8 +331,15 @@ Worker (BullMQ) → 简历解析队列
 
 - 部署链路：本地 main（`fde376a`）→ push 生产仓库 `fitback/cvbuilder2.0`（`c125452..fde376a`，5 提交）→ Deploy run #34225061340 → 部署 job 成功 + 健康检查通过（CI 的 Docker 构建验证步骤被取消，不影响部署）
 - **DB migration 基线化**：v0.8.0 首次引入 `prisma/migrations`（2 个 migration，第一个是全量基线，含全部 9 张表）。此前 prod 一直由 entrypoint 的 `db push` 同步 schema（无 `_prisma_migrations` 历史），直接 `migrate deploy` 会因 `CREATE TABLE "User"` 撞表报错。本次部署后（db push 已自动建好 2 张新表 + 复合索引）在 backend 容器执行 `prisma migrate resolve --applied` ×2 建立基线，`migrate status` = up to date
-- **⚠️ 下次发版建议**：entrypoint（`scripts/entrypoint-backend.sh`）从 `db push` 改为 `migrate deploy`。基线已建立，之后新增 migration 走 migrate deploy 流程；继续用 db push 会导致 migrations 与 DB 历史脱节
+- **✅ 已切换（v0.10.0）**：entrypoint（`scripts/entrypoint-backend.sh`）已从 `db push` 改为 `migrate deploy`，新增 migration 随容器启动自动应用
 - **⚠️ 部署前置**：生产仓库是 `cvbuilder2.0`（服务器 origin 指向它），本地开发仓库是 `fitback/cvbuilder`。触发 Deploy 前必须先把 main push 到 cvbuilder2.0，否则服务器拉到的是旧代码
+
+### v0.10.0 部署记录（2026-09-09）
+
+- 部署链路：main `83ab088`（v0.9.0 可观测性 + v0.10.0 业务功能 + entrypoint/migration 配置）push 到 `fitback/cvbuilder2.0` → Deploy run #34247479569 → **CI 通过但部署失败**：SSH 命令 60m 超时（镜像构建卡在 chromium apt 安装阶段）
+- **根因**：`node:22-bookworm-slim` 浮动 tag 更新 → 基础镜像层变化 → stage 2 缓存全部失效 → chromium + fonts-noto-cjk 全量重装（小 ECS 上 >60 分钟）→ 超时后孤儿构建继续占满服务器（SSH banner 超时、站点停机）
+- **恢复**：重启 ECS 清掉孤儿构建 → 手动 `nohup docker compose build`（复用失败构建的 BuildKit 缓存，~35 分钟完成）→ `docker compose up -d` → entrypoint `migrate deploy` 自动应用 `add_template_id_to_generated_resume` → 全站恢复，`_prisma_migrations` 3 行、`templateId` 列默认 'modern'
+- **⚠️ 下次发版建议**：3 个 Dockerfile 的 `FROM node:22-bookworm-slim` 固定为具体版本 tag（如 `node:22.20.0-bookworm-slim`），避免浮动 tag 导致 chromium 层缓存反复失效；或考虑把镜像构建移出 GitHub Actions（本机构建 + 推送镜像仓库 + 服务器 pull）
 
 ### 服务器关键路径
 
