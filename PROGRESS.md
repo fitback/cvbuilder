@@ -339,7 +339,7 @@ Worker (BullMQ) → 简历解析队列
 - 部署链路：main `83ab088`（v0.9.0 可观测性 + v0.10.0 业务功能 + entrypoint/migration 配置）push 到 `fitback/cvbuilder2.0` → Deploy run #34247479569 → **CI 通过但部署失败**：SSH 命令 60m 超时（镜像构建卡在 chromium apt 安装阶段）
 - **根因**：`node:22-bookworm-slim` 浮动 tag 更新 → 基础镜像层变化 → stage 2 缓存全部失效 → chromium + fonts-noto-cjk 全量重装（小 ECS 上 >60 分钟）→ 超时后孤儿构建继续占满服务器（SSH banner 超时、站点停机）
 - **恢复**：重启 ECS 清掉孤儿构建 → 手动 `nohup docker compose build`（复用失败构建的 BuildKit 缓存，~35 分钟完成）→ `docker compose up -d` → entrypoint `migrate deploy` 自动应用 `add_template_id_to_generated_resume` → 全站恢复，`_prisma_migrations` 3 行、`templateId` 列默认 'modern'
-- **⚠️ 下次发版建议**：3 个 Dockerfile 的 `FROM node:22-bookworm-slim` 固定为具体版本 tag（如 `node:22.20.0-bookworm-slim`），避免浮动 tag 导致 chromium 层缓存反复失效；或考虑把镜像构建移出 GitHub Actions（本机构建 + 推送镜像仓库 + 服务器 pull）
+- **✅ 已固定（2026-09-09）**：3 个 Dockerfile 的 FROM 固定为 `node:22.23.2-bookworm-slim` / `node:22.23.2-alpine`（与当前线上镜像的 node 版本一致，下次构建基础层缓存命中；已在服务器验证 tag 可拉取）。备选方案保留：把镜像构建移出 GitHub Actions（本机构建 + 推送镜像仓库 + 服务器 pull）
 
 ### 服务器关键路径
 
